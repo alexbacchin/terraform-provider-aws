@@ -84,7 +84,7 @@ import (
 // Cut and dry functions using well-used patterns, like typical flatteners and
 // expanders, don't need unit testing. However, if they are complex or
 // intricate, they should be unit tested.
-func TestRoute53RecordsExclusiveExampleUnitTest(t *testing.T) {
+func TestRecordsExclusiveExampleUnitTest(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -140,7 +140,7 @@ func TestRoute53RecordsExclusiveExampleUnitTest(t *testing.T) {
 // resource name.
 //
 // Acceptance test access AWS and cost money to run.
-func TestAccRoute53Route53RecordsExclusive_basic(t *testing.T) {
+func TestAccRecordsExclusive_basic(t *testing.T) {
 	ctx := acctest.Context(t)
 	// TIP: This is a long-running test guard for tests that run longer than
 	// 300s (5 min) generally.
@@ -148,7 +148,7 @@ func TestAccRoute53Route53RecordsExclusive_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
-	var route53recordsexclusive route53.DescribeRoute53RecordsExclusiveResponse
+	var RecordsExclusive route53.DescribeRecordsExclusiveResponse
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "aws_route53_route53_records_exclusive.test"
 
@@ -160,12 +160,12 @@ func TestAccRoute53Route53RecordsExclusive_basic(t *testing.T) {
 		},
 		ErrorCheck:               acctest.ErrorCheck(t, names.Route53ServiceID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckRoute53RecordsExclusiveDestroy(ctx),
+		CheckDestroy:             testAccCheckRecordsExclusiveDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccRoute53RecordsExclusiveConfig_basic(rName),
+				Config: testAccRecordsExclusiveConfig_basic(rName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckRoute53RecordsExclusiveExists(ctx, resourceName, &route53recordsexclusive),
+					testAccCheckRecordsExclusiveExists(ctx, resourceName, &RecordsExclusive),
 					resource.TestCheckResourceAttr(resourceName, "auto_minor_version_upgrade", "false"),
 					resource.TestCheckResourceAttrSet(resourceName, "maintenance_window_start_time.0.day_of_week"),
 					resource.TestCheckTypeSetElemNestedAttrs(resourceName, "user.*", map[string]string{
@@ -174,7 +174,7 @@ func TestAccRoute53Route53RecordsExclusive_basic(t *testing.T) {
 						"username":       "Test",
 						"password":       "TestTest1234",
 					}),
-					acctest.MatchResourceAttrRegionalARN(resourceName, "arn", "route53", regexache.MustCompile(`route53recordsexclusive:+.`)),
+					acctest.MatchResourceAttrRegionalARN(resourceName, "arn", "route53", regexache.MustCompile(`RecordsExclusive:+.`)),
 				),
 			},
 			{
@@ -187,13 +187,13 @@ func TestAccRoute53Route53RecordsExclusive_basic(t *testing.T) {
 	})
 }
 
-func TestAccRoute53Route53RecordsExclusive_disappears(t *testing.T) {
+func TestAccRecordsExclusive_disappears(t *testing.T) {
 	ctx := acctest.Context(t)
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
 
-	var route53recordsexclusive route53.DescribeRoute53RecordsExclusiveResponse
+	var RecordsExclusive route53.DescribeRecordsExclusiveResponse
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "aws_route53_route53_records_exclusive.test"
 
@@ -205,19 +205,19 @@ func TestAccRoute53Route53RecordsExclusive_disappears(t *testing.T) {
 		},
 		ErrorCheck:               acctest.ErrorCheck(t, names.Route53ServiceID),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckRoute53RecordsExclusiveDestroy(ctx),
+		CheckDestroy:             testAccCheckRecordsExclusiveDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccRoute53RecordsExclusiveConfig_basic(rName, testAccRoute53RecordsExclusiveVersionNewer),
+				Config: testAccRecordsExclusiveConfig_basic(rName, testAccRecordsExclusiveVersionNewer),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckRoute53RecordsExclusiveExists(ctx, resourceName, &route53recordsexclusive),
+					testAccCheckRecordsExclusiveExists(ctx, resourceName, &RecordsExclusive),
 					// TIP: The Plugin-Framework disappears helper is similar to the Plugin-SDK version,
 					// but expects a new resource factory function as the third argument. To expose this
 					// private function to the testing package, you may need to add a line like the following
 					// to exports_test.go:
 					//
-					//   var ResourceRoute53RecordsExclusive = newResourceRoute53RecordsExclusive
-					acctest.CheckFrameworkResourceDisappears(ctx, acctest.Provider, tfroute53.ResourceRoute53RecordsExclusive, resourceName),
+					//   var ResourceRecordsExclusive = newResourceRecordsExclusive
+					acctest.CheckFrameworkResourceDisappears(ctx, acctest.Provider, tfroute53.ResourceRecordsExclusive, resourceName),
 				),
 				ExpectNonEmptyPlan: true,
 			},
@@ -225,7 +225,7 @@ func TestAccRoute53Route53RecordsExclusive_disappears(t *testing.T) {
 	})
 }
 
-func testAccCheckRoute53RecordsExclusiveDestroy(ctx context.Context) resource.TestCheckFunc {
+func testAccCheckRecordsExclusiveDestroy(ctx context.Context) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		conn := acctest.Provider.Meta().(*conns.AWSClient).Route53Client(ctx)
 
@@ -234,47 +234,47 @@ func testAccCheckRoute53RecordsExclusiveDestroy(ctx context.Context) resource.Te
 				continue
 			}
 
-			input := &route53.DescribeRoute53RecordsExclusiveInput{
-				Route53RecordsExclusiveId: aws.String(rs.Primary.ID),
+			input := &route53.DescribeRecordsExclusiveInput{
+				RecordsExclusiveId: aws.String(rs.Primary.ID),
 			}
-			_, err := conn.DescribeRoute53RecordsExclusive(ctx, &route53.DescribeRoute53RecordsExclusiveInput{
-				Route53RecordsExclusiveId: aws.String(rs.Primary.ID),
+			_, err := conn.DescribeRecordsExclusive(ctx, &route53.DescribeRecordsExclusiveInput{
+				RecordsExclusiveId: aws.String(rs.Primary.ID),
 			})
 			if errs.IsA[*types.ResourceNotFoundException](err) {
 				return nil
 			}
 			if err != nil {
-				return create.Error(names.Route53, create.ErrActionCheckingDestroyed, tfroute53.ResNameRoute53RecordsExclusive, rs.Primary.ID, err)
+				return create.Error(names.Route53, create.ErrActionCheckingDestroyed, tfroute53.ResNameRecordsExclusive, rs.Primary.ID, err)
 			}
 
-			return create.Error(names.Route53, create.ErrActionCheckingDestroyed, tfroute53.ResNameRoute53RecordsExclusive, rs.Primary.ID, errors.New("not destroyed"))
+			return create.Error(names.Route53, create.ErrActionCheckingDestroyed, tfroute53.ResNameRecordsExclusive, rs.Primary.ID, errors.New("not destroyed"))
 		}
 
 		return nil
 	}
 }
 
-func testAccCheckRoute53RecordsExclusiveExists(ctx context.Context, name string, route53recordsexclusive *route53.DescribeRoute53RecordsExclusiveResponse) resource.TestCheckFunc {
+func testAccCheckRecordsExclusiveExists(ctx context.Context, name string, RecordsExclusive *route53.DescribeRecordsExclusiveResponse) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[name]
 		if !ok {
-			return create.Error(names.Route53, create.ErrActionCheckingExistence, tfroute53.ResNameRoute53RecordsExclusive, name, errors.New("not found"))
+			return create.Error(names.Route53, create.ErrActionCheckingExistence, tfroute53.ResNameRecordsExclusive, name, errors.New("not found"))
 		}
 
 		if rs.Primary.ID == "" {
-			return create.Error(names.Route53, create.ErrActionCheckingExistence, tfroute53.ResNameRoute53RecordsExclusive, name, errors.New("not set"))
+			return create.Error(names.Route53, create.ErrActionCheckingExistence, tfroute53.ResNameRecordsExclusive, name, errors.New("not set"))
 		}
 
 		conn := acctest.Provider.Meta().(*conns.AWSClient).Route53Client(ctx)
-		resp, err := conn.DescribeRoute53RecordsExclusive(ctx, &route53.DescribeRoute53RecordsExclusiveInput{
-			Route53RecordsExclusiveId: aws.String(rs.Primary.ID),
+		resp, err := conn.DescribeRecordsExclusive(ctx, &route53.DescribeRecordsExclusiveInput{
+			RecordsExclusiveId: aws.String(rs.Primary.ID),
 		})
 
 		if err != nil {
-			return create.Error(names.Route53, create.ErrActionCheckingExistence, tfroute53.ResNameRoute53RecordsExclusive, rs.Primary.ID, err)
+			return create.Error(names.Route53, create.ErrActionCheckingExistence, tfroute53.ResNameRecordsExclusive, rs.Primary.ID, err)
 		}
 
-		*route53recordsexclusive = *resp
+		*RecordsExclusive = *resp
 
 		return nil
 	}
@@ -283,8 +283,8 @@ func testAccCheckRoute53RecordsExclusiveExists(ctx context.Context, name string,
 func testAccPreCheck(ctx context.Context, t *testing.T) {
 	conn := acctest.Provider.Meta().(*conns.AWSClient).Route53Client(ctx)
 
-	input := &route53.ListRoute53RecordsExclusivesInput{}
-	_, err := conn.ListRoute53RecordsExclusives(ctx, input)
+	input := &route53.ListRecordsExclusivesInput{}
+	_, err := conn.ListRecordsExclusives(ctx, input)
 
 	if acctest.PreCheckSkipError(err) {
 		t.Skipf("skipping acceptance testing: %s", err)
@@ -294,23 +294,23 @@ func testAccPreCheck(ctx context.Context, t *testing.T) {
 	}
 }
 
-func testAccCheckRoute53RecordsExclusiveNotRecreated(before, after *route53.DescribeRoute53RecordsExclusiveResponse) resource.TestCheckFunc {
+func testAccCheckRecordsExclusiveNotRecreated(before, after *route53.DescribeRecordsExclusiveResponse) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		if before, after := aws.ToString(before.Route53RecordsExclusiveId), aws.ToString(after.Route53RecordsExclusiveId); before != after {
-			return create.Error(names.Route53, create.ErrActionCheckingNotRecreated, tfroute53.ResNameRoute53RecordsExclusive, aws.ToString(before.Route53RecordsExclusiveId), errors.New("recreated"))
+		if before, after := aws.ToString(before.RecordsExclusiveId), aws.ToString(after.RecordsExclusiveId); before != after {
+			return create.Error(names.Route53, create.ErrActionCheckingNotRecreated, tfroute53.ResNameRecordsExclusive, aws.ToString(before.RecordsExclusiveId), errors.New("recreated"))
 		}
 
 		return nil
 	}
 }
 
-func testAccRoute53RecordsExclusiveConfig_basic(rName, version string) string {
+func testAccRecordsExclusiveConfig_basic(rName, version string) string {
 	return fmt.Sprintf(`
 resource "aws_security_group" "test" {
   name = %[1]q
 }
 
-resource "aws_route53_route53_records_exclusive" "test" {
+resource "aws_route53_records_exclusive" "test" {
   route53_records_exclusive_name             = %[1]q
   engine_type             = "ActiveRoute53"
   engine_version          = %[2]q

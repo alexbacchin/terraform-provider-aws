@@ -35,9 +35,9 @@ import (
 	"github.com/hashicorp/terraform-provider-aws/names"
 )
 
-// @FrameworkResource("aws_route53_route53_records_exclusive", name="Route53 Records Exclusive")
-func newResourceRoute53RecordsExclusive(_ context.Context) (resource.ResourceWithConfigure, error) {
-	r := &resourceRoute53RecordsExclusive{}
+// @FrameworkResource("aws_route53_records_exclusive", name="Records Exclusive")
+func newResourceRecordsExclusive(_ context.Context) (resource.ResourceWithConfigure, error) {
+	r := &resourceRecordsExclusive{}
 
 	// TIP: ==== CONFIGURABLE TIMEOUTS ====
 	// Users can configure timeout lengths but you need to use the times they
@@ -52,19 +52,19 @@ func newResourceRoute53RecordsExclusive(_ context.Context) (resource.ResourceWit
 }
 
 const (
-	ResNameRoute53RecordsExclusive = "Route53 Records Exclusive"
+	ResNameRecordsExclusive = "Records Exclusive"
 )
 
-type resourceRoute53RecordsExclusive struct {
+type resourceRecordsExclusive struct {
 	framework.ResourceWithConfigure
 	framework.WithTimeouts
 }
 
-func (r *resourceRoute53RecordsExclusive) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = "aws_route53_route53_records_exclusive"
+func (r *resourceRecordsExclusive) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "aws_route53_records_exclusive"
 }
 
-func (r *resourceRoute53RecordsExclusive) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *resourceRecordsExclusive) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"zone_id": schema.StringAttribute{
@@ -197,7 +197,7 @@ func (r *resourceRoute53RecordsExclusive) Schema(ctx context.Context, req resour
 	}
 }
 
-func (r *resourceRoute53RecordsExclusive) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (r *resourceRecordsExclusive) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// TIP: ==== RESOURCE CREATE ====
 	// Generally, the Create function should do the following things. Make
 	// sure there is a good reason if you don't do one of these.
@@ -216,34 +216,34 @@ func (r *resourceRoute53RecordsExclusive) Create(ctx context.Context, req resour
 	conn := r.Meta().Route53Client(ctx)
 
 	// TIP: -- 2. Fetch the plan
-	var plan resourceRoute53RecordsExclusiveModel
+	var plan resourceRecordsExclusiveModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	// TIP: -- 3. Populate a Create input structure
-	var input route53.CreateRoute53RecordsExclusiveInput
-	// TIP: Using a field name prefix allows mapping fields such as `ID` to `Route53RecordsExclusiveId`
-	resp.Diagnostics.Append(flex.Expand(ctx, plan, &input, flex.WithFieldNamePrefix("Route53RecordsExclusive"))...)
+	var input route53.CreateRecordsExclusiveInput
+	// TIP: Using a field name prefix allows mapping fields such as `ID` to `RecordsExclusiveId`
+	resp.Diagnostics.Append(flex.Expand(ctx, plan, &input, flex.WithFieldNamePrefix("RecordsExclusive"))...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	// TIP: -- 4. Call the AWS Create function
-	out, err := conn.CreateRoute53RecordsExclusive(ctx, &input)
+	out, err := conn.CreateRecordsExclusive(ctx, &input)
 	if err != nil {
 		// TIP: Since ID has not been set yet, you cannot use plan.ID.String()
 		// in error messages at this point.
 		resp.Diagnostics.AddError(
-			create.ProblemStandardMessage(names.Route53, create.ErrActionCreating, ResNameRoute53RecordsExclusive, plan.Name.String(), err),
+			create.ProblemStandardMessage(names.Route53, create.ErrActionCreating, ResNameRecordsExclusive, plan.Name.String(), err),
 			err.Error(),
 		)
 		return
 	}
-	if out == nil || out.Route53RecordsExclusive == nil {
+	if out == nil || out.RecordsExclusive == nil {
 		resp.Diagnostics.AddError(
-			create.ProblemStandardMessage(names.Route53, create.ErrActionCreating, ResNameRoute53RecordsExclusive, plan.Name.String(), nil),
+			create.ProblemStandardMessage(names.Route53, create.ErrActionCreating, ResNameRecordsExclusive, plan.Name.String(), nil),
 			errors.New("empty output").Error(),
 		)
 		return
@@ -257,10 +257,10 @@ func (r *resourceRoute53RecordsExclusive) Create(ctx context.Context, req resour
 
 	// TIP: -- 6. Use a waiter to wait for create to complete
 	createTimeout := r.CreateTimeout(ctx, plan.Timeouts)
-	_, err = waitRoute53RecordsExclusiveCreated(ctx, conn, plan.ID.ValueString(), createTimeout)
+	_, err = waitRecordsExclusiveCreated(ctx, conn, plan.ID.ValueString(), createTimeout)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			create.ProblemStandardMessage(names.Route53, create.ErrActionWaitingForCreation, ResNameRoute53RecordsExclusive, plan.Name.String(), err),
+			create.ProblemStandardMessage(names.Route53, create.ErrActionWaitingForCreation, ResNameRecordsExclusive, plan.Name.String(), err),
 			err.Error(),
 		)
 		return
@@ -270,7 +270,7 @@ func (r *resourceRoute53RecordsExclusive) Create(ctx context.Context, req resour
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
-func (r *resourceRoute53RecordsExclusive) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (r *resourceRecordsExclusive) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	// TIP: ==== RESOURCE READ ====
 	// Generally, the Read function should do the following things. Make
 	// sure there is a good reason if you don't do one of these.
@@ -286,7 +286,7 @@ func (r *resourceRoute53RecordsExclusive) Read(ctx context.Context, req resource
 	conn := r.Meta().Route53Client(ctx)
 
 	// TIP: -- 2. Fetch the state
-	var state resourceRoute53RecordsExclusiveModel
+	var state resourceRecordsExclusiveModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -294,7 +294,7 @@ func (r *resourceRoute53RecordsExclusive) Read(ctx context.Context, req resource
 
 	// TIP: -- 3. Get the resource from AWS using an API Get, List, or Describe-
 	// type function, or, better yet, using a finder.
-	out, err := findRoute53RecordsExclusiveByID(ctx, conn, state.ID.ValueString())
+	out, err := findRecordsExclusiveByID(ctx, conn, state.ID.ValueString())
 	// TIP: -- 4. Remove resource from state if it is not found
 	if tfresource.NotFound(err) {
 		resp.State.RemoveResource(ctx)
@@ -302,7 +302,7 @@ func (r *resourceRoute53RecordsExclusive) Read(ctx context.Context, req resource
 	}
 	if err != nil {
 		resp.Diagnostics.AddError(
-			create.ProblemStandardMessage(names.Route53, create.ErrActionSetting, ResNameRoute53RecordsExclusive, state.ID.String(), err),
+			create.ProblemStandardMessage(names.Route53, create.ErrActionSetting, ResNameRecordsExclusive, state.ID.String(), err),
 			err.Error(),
 		)
 		return
@@ -318,7 +318,7 @@ func (r *resourceRoute53RecordsExclusive) Read(ctx context.Context, req resource
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-func (r *resourceRoute53RecordsExclusive) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *resourceRecordsExclusive) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// TIP: ==== RESOURCE UPDATE ====
 	// Not all resources have Update functions. There are a few reasons:
 	// a. The AWS API does not support changing a resource
@@ -343,7 +343,7 @@ func (r *resourceRoute53RecordsExclusive) Update(ctx context.Context, req resour
 	conn := r.Meta().Route53Client(ctx)
 
 	// TIP: -- 2. Fetch the plan
-	var plan, state resourceRoute53RecordsExclusiveModel
+	var plan, state resourceRecordsExclusiveModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
@@ -356,24 +356,24 @@ func (r *resourceRoute53RecordsExclusive) Update(ctx context.Context, req resour
 		!plan.ComplexArgument.Equal(state.ComplexArgument) ||
 		!plan.Type.Equal(state.Type) {
 
-		var input route53.UpdateRoute53RecordsExclusiveInput
+		var input route53.UpdateRecordsExclusiveInput
 		resp.Diagnostics.Append(flex.Expand(ctx, plan, &input, flex.WithFieldNamePrefix("Test"))...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
 
 		// TIP: -- 4. Call the AWS modify/update function
-		out, err := conn.UpdateRoute53RecordsExclusive(ctx, &input)
+		out, err := conn.UpdateRecordsExclusive(ctx, &input)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				create.ProblemStandardMessage(names.Route53, create.ErrActionUpdating, ResNameRoute53RecordsExclusive, plan.ID.String(), err),
+				create.ProblemStandardMessage(names.Route53, create.ErrActionUpdating, ResNameRecordsExclusive, plan.ID.String(), err),
 				err.Error(),
 			)
 			return
 		}
-		if out == nil || out.Route53RecordsExclusive == nil {
+		if out == nil || out.RecordsExclusive == nil {
 			resp.Diagnostics.AddError(
-				create.ProblemStandardMessage(names.Route53, create.ErrActionUpdating, ResNameRoute53RecordsExclusive, plan.ID.String(), nil),
+				create.ProblemStandardMessage(names.Route53, create.ErrActionUpdating, ResNameRecordsExclusive, plan.ID.String(), nil),
 				errors.New("empty output").Error(),
 			)
 			return
@@ -388,10 +388,10 @@ func (r *resourceRoute53RecordsExclusive) Update(ctx context.Context, req resour
 
 	// TIP: -- 5. Use a waiter to wait for update to complete
 	updateTimeout := r.UpdateTimeout(ctx, plan.Timeouts)
-	_, err := waitRoute53RecordsExclusiveUpdated(ctx, conn, plan.ID.ValueString(), updateTimeout)
+	_, err := waitRecordsExclusiveUpdated(ctx, conn, plan.ID.ValueString(), updateTimeout)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			create.ProblemStandardMessage(names.Route53, create.ErrActionWaitingForUpdate, ResNameRoute53RecordsExclusive, plan.ID.String(), err),
+			create.ProblemStandardMessage(names.Route53, create.ErrActionWaitingForUpdate, ResNameRecordsExclusive, plan.ID.String(), err),
 			err.Error(),
 		)
 		return
@@ -401,7 +401,7 @@ func (r *resourceRoute53RecordsExclusive) Update(ctx context.Context, req resour
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-func (r *resourceRoute53RecordsExclusive) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (r *resourceRecordsExclusive) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// TIP: ==== RESOURCE DELETE ====
 	// Most resources have Delete functions. There are rare situations
 	// where you might not need a delete:
@@ -421,19 +421,19 @@ func (r *resourceRoute53RecordsExclusive) Delete(ctx context.Context, req resour
 	conn := r.Meta().Route53Client(ctx)
 
 	// TIP: -- 2. Fetch the state
-	var state resourceRoute53RecordsExclusiveModel
+	var state resourceRecordsExclusiveModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	// TIP: -- 3. Populate a delete input structure
-	input := route53.DeleteRoute53RecordsExclusiveInput{
-		Route53RecordsExclusiveId: state.ID.ValueStringPointer(),
+	input := route53.DeleteRecordsExclusiveInput{
+		RecordsExclusiveId: state.ID.ValueStringPointer(),
 	}
 
 	// TIP: -- 4. Call the AWS delete function
-	_, err := conn.DeleteRoute53RecordsExclusive(ctx, &input)
+	_, err := conn.DeleteRecordsExclusive(ctx, &input)
 	// TIP: On rare occassions, the API returns a not found error after deleting a
 	// resource. If that happens, we don't want it to show up as an error.
 	if err != nil {
@@ -441,7 +441,7 @@ func (r *resourceRoute53RecordsExclusive) Delete(ctx context.Context, req resour
 			return
 		}
 		resp.Diagnostics.AddError(
-			create.ProblemStandardMessage(names.Route53, create.ErrActionDeleting, ResNameRoute53RecordsExclusive, state.ID.String(), err),
+			create.ProblemStandardMessage(names.Route53, create.ErrActionDeleting, ResNameRecordsExclusive, state.ID.String(), err),
 			err.Error(),
 		)
 		return
@@ -449,10 +449,10 @@ func (r *resourceRoute53RecordsExclusive) Delete(ctx context.Context, req resour
 
 	// TIP: -- 5. Use a waiter to wait for delete to complete
 	deleteTimeout := r.DeleteTimeout(ctx, state.Timeouts)
-	_, err = waitRoute53RecordsExclusiveDeleted(ctx, conn, state.ID.ValueString(), deleteTimeout)
+	_, err = waitRecordsExclusiveDeleted(ctx, conn, state.ID.ValueString(), deleteTimeout)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			create.ProblemStandardMessage(names.Route53, create.ErrActionWaitingForDeletion, ResNameRoute53RecordsExclusive, state.ID.String(), err),
+			create.ProblemStandardMessage(names.Route53, create.ErrActionWaitingForDeletion, ResNameRecordsExclusive, state.ID.String(), err),
 			err.Error(),
 		)
 		return
@@ -466,7 +466,7 @@ func (r *resourceRoute53RecordsExclusive) Delete(ctx context.Context, req resour
 //
 // See more:
 // https://developer.hashicorp.com/terraform/plugin/framework/resources/import
-func (r *resourceRoute53RecordsExclusive) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *resourceRecordsExclusive) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
@@ -494,18 +494,18 @@ const (
 // exported (i.e., capitalized).
 //
 // You will need to adjust the parameters and names to fit the service.
-func waitRoute53RecordsExclusiveCreated(ctx context.Context, conn *route53.Client, id string, timeout time.Duration) (*awstypes.Route53RecordsExclusive, error) {
+func waitRecordsExclusiveCreated(ctx context.Context, conn *route53.Client, id string, timeout time.Duration) (*awstypes.RecordsExclusive, error) {
 	stateConf := &retry.StateChangeConf{
 		Pending:                   []string{},
 		Target:                    []string{statusNormal},
-		Refresh:                   statusRoute53RecordsExclusive(ctx, conn, id),
+		Refresh:                   statusRecordsExclusive(ctx, conn, id),
 		Timeout:                   timeout,
 		NotFoundChecks:            20,
 		ContinuousTargetOccurence: 2,
 	}
 
 	outputRaw, err := stateConf.WaitForStateContext(ctx)
-	if out, ok := outputRaw.(*route53.Route53RecordsExclusive); ok {
+	if out, ok := outputRaw.(*route53.RecordsExclusive); ok {
 		return out, err
 	}
 
@@ -516,18 +516,18 @@ func waitRoute53RecordsExclusiveCreated(ctx context.Context, conn *route53.Clien
 // resources than others. The best case is a status flag that tells you when
 // the update has been fully realized. Other times, you can check to see if a
 // key resource argument is updated to a new value or not.
-func waitRoute53RecordsExclusiveUpdated(ctx context.Context, conn *route53.Client, id string, timeout time.Duration) (*awstypes.Route53RecordsExclusive, error) {
+func waitRecordsExclusiveUpdated(ctx context.Context, conn *route53.Client, id string, timeout time.Duration) (*awstypes.RecordsExclusive, error) {
 	stateConf := &retry.StateChangeConf{
 		Pending:                   []string{statusChangePending},
 		Target:                    []string{statusUpdated},
-		Refresh:                   statusRoute53RecordsExclusive(ctx, conn, id),
+		Refresh:                   statusRecordsExclusive(ctx, conn, id),
 		Timeout:                   timeout,
 		NotFoundChecks:            20,
 		ContinuousTargetOccurence: 2,
 	}
 
 	outputRaw, err := stateConf.WaitForStateContext(ctx)
-	if out, ok := outputRaw.(*route53.Route53RecordsExclusive); ok {
+	if out, ok := outputRaw.(*route53.RecordsExclusive); ok {
 		return out, err
 	}
 
@@ -536,16 +536,16 @@ func waitRoute53RecordsExclusiveUpdated(ctx context.Context, conn *route53.Clien
 
 // TIP: A deleted waiter is almost like a backwards created waiter. There may
 // be additional pending states, however.
-func waitRoute53RecordsExclusiveDeleted(ctx context.Context, conn *route53.Client, id string, timeout time.Duration) (*awstypes.Route53RecordsExclusive, error) {
+func waitRecordsExclusiveDeleted(ctx context.Context, conn *route53.Client, id string, timeout time.Duration) (*awstypes.RecordsExclusive, error) {
 	stateConf := &retry.StateChangeConf{
 		Pending: []string{statusDeleting, statusNormal},
 		Target:  []string{},
-		Refresh: statusRoute53RecordsExclusive(ctx, conn, id),
+		Refresh: statusRecordsExclusive(ctx, conn, id),
 		Timeout: timeout,
 	}
 
 	outputRaw, err := stateConf.WaitForStateContext(ctx)
-	if out, ok := outputRaw.(*route53.Route53RecordsExclusive); ok {
+	if out, ok := outputRaw.(*route53.RecordsExclusive); ok {
 		return out, err
 	}
 
@@ -559,9 +559,9 @@ func waitRoute53RecordsExclusiveDeleted(ctx context.Context, conn *route53.Clien
 //
 // Waiters consume the values returned by status functions. Design status so
 // that it can be reused by a create, update, and delete waiter, if possible.
-func statusRoute53RecordsExclusive(ctx context.Context, conn *route53.Client, id string) retry.StateRefreshFunc {
+func statusRecordsExclusive(ctx context.Context, conn *route53.Client, id string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		out, err := findRoute53RecordsExclusiveByID(ctx, conn, id)
+		out, err := findRecordsExclusiveByID(ctx, conn, id)
 		if tfresource.NotFound(err) {
 			return nil, "", nil
 		}
@@ -579,12 +579,12 @@ func statusRoute53RecordsExclusive(ctx context.Context, conn *route53.Client, id
 // request from the status function. However, we have found that find often
 // comes in handy in other places besides the status function. As a result, it
 // is good practice to define it separately.
-func findRoute53RecordsExclusiveByID(ctx context.Context, conn *route53.Client, id string) (*awstypes.Route53RecordsExclusive, error) {
-	in := &route53.GetRoute53RecordsExclusiveInput{
+func findRecordsExclusiveByID(ctx context.Context, conn *route53.Client, id string) (*awstypes.RecordsExclusive, error) {
+	in := &route53.GetRecordsExclusiveInput{
 		Id: aws.String(id),
 	}
 
-	out, err := conn.GetRoute53RecordsExclusive(ctx, in)
+	out, err := conn.GetRecordsExclusive(ctx, in)
 	if err != nil {
 		if errs.IsA[*awstypes.ResourceNotFoundException](err) {
 			return nil, &retry.NotFoundError{
@@ -596,11 +596,11 @@ func findRoute53RecordsExclusiveByID(ctx context.Context, conn *route53.Client, 
 		return nil, err
 	}
 
-	if out == nil || out.Route53RecordsExclusive == nil {
+	if out == nil || out.RecordsExclusive == nil {
 		return nil, tfresource.NewEmptyResultError(in)
 	}
 
-	return out.Route53RecordsExclusive, nil
+	return out.RecordsExclusive, nil
 }
 
 // TIP: ==== DATA STRUCTURES ====
