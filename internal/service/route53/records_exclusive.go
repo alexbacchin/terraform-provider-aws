@@ -15,7 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
-	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -75,7 +74,7 @@ func (r *resourceRecordsExclusive) Schema(ctx context.Context, req resource.Sche
 			},
 		},
 		Blocks: map[string]schema.Block{
-			"record_set": schema.ListNestedBlock{
+			"resource_record_set": schema.ListNestedBlock{
 				CustomType: fwtypes.NewListNestedObjectTypeOf[resourceRecordSetModel](ctx),
 				Validators: []validator.List{
 					listvalidator.SizeAtLeast(1),
@@ -106,13 +105,6 @@ func (r *resourceRecordsExclusive) Schema(ctx context.Context, req resource.Sche
 								int32validator.Between(0, 255),
 							},
 						},
-						"records": schema.SetAttribute{
-							Optional: true,
-							Validators: []validator.Set{
-								setvalidator.SizeAtLeast(1),
-								setvalidator.ConflictsWith(path.MatchRoot(names.AttrAlias)),
-							},
-						},
 						"failover": schema.StringAttribute{
 							Optional: true,
 							Validators: []validator.String{
@@ -131,9 +123,45 @@ func (r *resourceRecordsExclusive) Schema(ctx context.Context, req resource.Sche
 						"health_check_id": schema.StringAttribute{
 							Optional: true,
 						},
+						"region": schema.StringAttribute{
+							Optional: true,
+							Validators: []validator.String{
+								stringvalidator.LengthBetween(1, 64),
+							},
+						},
+						"traffic_policy_instance_id": schema.StringAttribute{
+							Optional: true,
+							Validators: []validator.String{
+								stringvalidator.LengthBetween(1, 36),
+							},
+						},
 					},
 					Blocks: map[string]schema.Block{
-						names.AttrAlias: schema.ListNestedBlock{
+						"resource_records": schema.ListNestedBlock{
+							Validators: []validator.List{
+								listvalidator.SizeAtMost(1),
+							},
+							NestedObject: schema.NestedBlockObject{
+								CustomType: fwtypes.NewListNestedObjectTypeOf[resourceRecordModel](ctx),
+								Blocks: map[string]schema.Block{
+								   "resource_record": schema.ListNestedBlock{
+									Validators: []validator.List{
+										listvalidator.SizeAtLeast(1),
+									},
+									Attributes: map[string]schema.Attribute{
+										"value": schema.StringAttribute{
+											Required: true,
+											Validators: []validator.String{
+													
+												stringvalidator.LengthAtMost(4000),
+											},
+										},
+									},
+
+								},
+							},
+						},
+						"alias_target": schema.ListNestedBlock{
 							CustomType: fwtypes.NewListNestedObjectTypeOf[aliasTargetModel](ctx),
 							Validators: []validator.List{
 								listvalidator.SizeAtMost(1),
@@ -141,7 +169,7 @@ func (r *resourceRecordsExclusive) Schema(ctx context.Context, req resource.Sche
 							},
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
-									names.AttrName: schema.StringAttribute{
+									"dns_name": schema.StringAttribute{
 										Required: true,
 										Validators: []validator.String{
 											stringvalidator.LengthAtMost(1024),
@@ -150,7 +178,7 @@ func (r *resourceRecordsExclusive) Schema(ctx context.Context, req resource.Sche
 									"evaluate_target_health": schema.BoolAttribute{
 										Required: true,
 									},
-									"zone_id": schema.StringAttribute{
+									"hosted_zone_id": schema.StringAttribute{
 										Required: true,
 										Validators: []validator.String{
 											stringvalidator.LengthAtMost(32),
@@ -159,7 +187,7 @@ func (r *resourceRecordsExclusive) Schema(ctx context.Context, req resource.Sche
 								},
 							},
 						},
-						"cidr_routing_policy": schema.ListNestedBlock{
+						"cidr_routing_config": schema.ListNestedBlock{
 							CustomType: fwtypes.NewListNestedObjectTypeOf[cidrRoutingConfigModel](ctx),
 							Validators: []validator.List{
 								listvalidator.SizeAtMost(1),
@@ -185,6 +213,88 @@ func (r *resourceRecordsExclusive) Schema(ctx context.Context, req resource.Sche
 								},
 							},
 						},
+						"geo_location": schema.ListNestedBlock{
+							CustomType: fwtypes.NewListNestedObjectTypeOf[geoLocationModel](ctx),
+							Validators: []validator.List{
+								listvalidator.SizeAtMost(1),
+								listvalidator.AlsoRequires(path.MatchRelative().AtParent().AtName(names.AttrName), path.MatchRelative().AtParent().AtName(names.AttrType)),
+							},
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"continent_code": schema.StringAttribute{
+										Optional: true,
+										Validators: []validator.String{
+											stringvalidator.OneOf("AF", "AN", "AS", "EU", "OC", "NA", "SA"),
+										},
+									},
+									"country_code": schema.StringAttribute{
+										Optional: true,
+										Validators: []validator.String{
+											stringvalidator.LengthBetween(1, 2),
+										},
+									},
+									"subdivision_code": schema.StringAttribute{
+										Optional: true,
+										Validators: []validator.String{
+											stringvalidator.LengthBetween(1, 3),
+										},
+									},
+								},
+							},
+						},
+						"geo_proximity_location": schema.ListNestedBlock{
+							CustomType: fwtypes.NewListNestedObjectTypeOf[geoProximityLocationModel](ctx),
+							Validators: []validator.List{
+								listvalidator.SizeAtMost(1),
+								listvalidator.AlsoRequires(path.MatchRelative().AtParent().AtName(names.AttrName), path.MatchRelative().AtParent().AtName(names.AttrType)),
+							},
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"aws_region": schema.StringAttribute{
+										Optional: true,
+										Validators: []validator.String{
+											stringvalidator.LengthBetween(1, 64),
+										},
+									},
+									"bias": schema.Int32Attribute{
+										Optional: true,
+										Validators: []validator.Int32{
+											int32validator.Between(-99, 99),
+										},
+									},
+									"local_zone_group": schema.StringAttribute{
+										Optional: true,
+										Validators: []validator.String{
+											stringvalidator.LengthBetween(1, 64),
+										},
+									},
+								},
+								Blocks: map[string]schema.Block{
+									"coordinates": schema.ListNestedBlock{
+										CustomType: fwtypes.NewListNestedObjectTypeOf[coordinatesModel](ctx),
+										Validators: []validator.List{
+											listvalidator.SizeAtMost(1),
+										},
+										NestedObject: schema.NestedBlockObject{
+											Attributes: map[string]schema.Attribute{
+												"latitude": schema.StringAttribute{
+													Required: true,
+													Validators: []validator.String{
+														stringvalidator.RegexMatches(regexache.MustCompile(`[-+]?[0-9]{1,2}(\.[0-9]{0,2})?`), ""),
+													},
+												},
+												"longitude": schema.StringAttribute{
+													Required: true,
+													Validators: []validator.String{
+														stringvalidator.RegexMatches(regexache.MustCompile(`[-+]?[0-9]{1,3}(\.[0-9]{0,2})?`), ""),
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -198,24 +308,9 @@ func (r *resourceRecordsExclusive) Schema(ctx context.Context, req resource.Sche
 }
 
 func (r *resourceRecordsExclusive) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	// TIP: ==== RESOURCE CREATE ====
-	// Generally, the Create function should do the following things. Make
-	// sure there is a good reason if you don't do one of these.
-	//
-	// 1. Get a client connection to the relevant service
-	// 2. Fetch the plan
-	// 3. Populate a create input structure
-	// 4. Call the AWS create/put function
-	// 5. Using the output from the create function, set the minimum arguments
-	//    and attributes for the Read function to work, as well as any computed
-	//    only attributes.
-	// 6. Use a waiter to wait for create to complete
-	// 7. Save the request plan to response state
 
-	// TIP: -- 1. Get a client connection to the relevant service
-	conn := r.Meta().Route53Client(ctx)
+	conn := r.Meta().Client(ctx)
 
-	// TIP: -- 2. Fetch the plan
 	var plan resourceRecordsExclusiveModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -223,7 +318,7 @@ func (r *resourceRecordsExclusive) Create(ctx context.Context, req resource.Crea
 	}
 
 	// TIP: -- 3. Populate a Create input structure
-	var input route53.CreateRecordsExclusiveInput
+	var input awstypes.
 	// TIP: Using a field name prefix allows mapping fields such as `ID` to `RecordsExclusiveId`
 	resp.Diagnostics.Append(flex.Expand(ctx, plan, &input, flex.WithFieldNamePrefix("RecordsExclusive"))...)
 	if resp.Diagnostics.HasError() {
@@ -283,7 +378,7 @@ func (r *resourceRecordsExclusive) Read(ctx context.Context, req resource.ReadRe
 	// 6. Set the state
 
 	// TIP: -- 1. Get a client connection to the relevant service
-	conn := r.Meta().Route53Client(ctx)
+	conn := r.Meta().Client(ctx)
 
 	// TIP: -- 2. Fetch the state
 	var state resourceRecordsExclusiveModel
@@ -340,7 +435,7 @@ func (r *resourceRecordsExclusive) Update(ctx context.Context, req resource.Upda
 	// 5. Use a waiter to wait for update to complete
 	// 6. Save the request plan to response state
 	// TIP: -- 1. Get a client connection to the relevant service
-	conn := r.Meta().Route53Client(ctx)
+	conn := r.Meta().Client(ctx)
 
 	// TIP: -- 2. Fetch the plan
 	var plan, state resourceRecordsExclusiveModel
@@ -356,7 +451,7 @@ func (r *resourceRecordsExclusive) Update(ctx context.Context, req resource.Upda
 		!plan.ComplexArgument.Equal(state.ComplexArgument) ||
 		!plan.Type.Equal(state.Type) {
 
-		var input route53.UpdateRecordsExclusiveInput
+		var input awstypes.UpdateRecordsExclusiveInput
 		resp.Diagnostics.Append(flex.Expand(ctx, plan, &input, flex.WithFieldNamePrefix("Test"))...)
 		if resp.Diagnostics.HasError() {
 			return
@@ -615,25 +710,59 @@ func findRecordsExclusiveByID(ctx context.Context, conn *route53.Client, id stri
 //
 // See more:
 // https://developer.hashicorp.com/terraform/plugin/framework/handling-data/accessing-values
+
+type resourceRecordsExclusiveModel struct {
+	ID 		types.String `tfsdk:"zone_id"`
+	ResourceRecordSets fwtypes.ListNestedObjectValueOf[resourceRecordSetModel] `tfsdk:"resource_record_set"`
+}
+
 type resourceRecordSetModel struct {
-	Name             types.String                     `tfsdk:"name"`
-	Type             types.String                     `tfsdk:"type"`
-	TTL              types.Int32                      `tfsdk:"ttl"`
-	Weight           types.Int32                      `tfsdk:"weight"`
-	Records          fwtypes.SetValueOf[types.String] `tfsdk:"records"`
-	Failover         types.String                     `tfsdk:"failover"`
-	MultiValueAnswer types.Bool                       `tfsdk:"multi_value_answer"`
-	SetIdentifier    types.String                     `tfsdk:"set_identifier"`
-	HealthCheckId    types.String                     `tfsdk:"health_check_id"`
+	Name                    types.String                                               `tfsdk:"name"`
+	Type                    types.String                                               `tfsdk:"type"`
+	TTL                     types.Int32                                                `tfsdk:"ttl"`
+	Weight                  types.Int32                                                `tfsdk:"weight"`
+	Failover                types.String                                               `tfsdk:"failover"`
+	MultiValueAnswer        types.Bool                                                 `tfsdk:"multi_value_answer"`
+	SetIdentifier           types.String                                               `tfsdk:"set_identifier"`
+	HealthCheckId           types.String                                               `tfsdk:"health_check_id"`
+	Region                  types.String                                               `tfsdk:"region"`
+	TrafficPolicyInstanceId types.String                                               `tfsdk:"traffic_policy_instance_id"`
+	Alias                   fwtypes.ListNestedObjectValueOf[aliasTargetModel]          `tfsdk:"alias"`
+	CIDRRoutingConfig       fwtypes.ListNestedObjectValueOf[cidrRoutingConfigModel]    `tfsdk:"cidr_routing_config"`
+	GeoLocation             fwtypes.ListNestedObjectValueOf[geoLocationModel]          `tfsdk:"geo_location"`
+	GeoProximityLocation    fwtypes.ListNestedObjectValueOf[geoProximityLocationModel] `tfsdk:"geo_proximity_location"`
+	ResourceRecords         fwtypes.ListNestedObjectValueOf[resourceRecordModel]       `tfsdk:"resource_records"`
+}
+
+type resourceRecordModel struct {
+	Value types.String `tfsdk:"value"`
 }
 
 type aliasTargetModel struct {
-	DNSName              types.String `tfsdk:"name"`
+	DNSName              types.String `tfsdk:"dns_name"`
 	EvaluateTargetHealth types.Bool   `tfsdk:"evaluate_target_health"`
-	HostedZoneId         types.String `tfsdk:"zone_id"`
+	HostedZoneId         types.String `tfsdk:"hosted_zone_id"`
 }
 
 type cidrRoutingConfigModel struct {
 	CollectionId types.String `tfsdk:"collection_id"`
 	LocationName types.String `tfsdk:"location_name"`
+}
+
+type geoLocationModel struct {
+	ContinentCode   types.String `tfsdk:"continent_code"`
+	CountryCode     types.String `tfsdk:"country_code"`
+	SubdivisionCode types.String `tfsdk:"subdivision_code"`
+}
+
+type geoProximityLocationModel struct {
+	AWSRegion      types.String                                      `tfsdk:"aws_region"`
+	Bias           types.Int32                                       `tfsdk:"bias"`
+	LocalZoneGroup types.String                                      `tfsdk:"local_zone_group"`
+	Coordinates    fwtypes.ListNestedObjectValueOf[coordinatesModel] `tfsdk:"coordinates"`
+}
+
+type coordinatesModel struct {
+	Latitude  types.String `tfsdk:"latitude"`
+	Longitude types.String `tfsdk:"longitude"`
 }
