@@ -38,11 +38,6 @@ import (
 func newResourceRecordsExclusive(_ context.Context) (resource.ResourceWithConfigure, error) {
 	r := &resourceRecordsExclusive{}
 
-	// TIP: ==== CONFIGURABLE TIMEOUTS ====
-	// Users can configure timeout lengths but you need to use the times they
-	// provide. Access the timeout they configure (or the defaults) using,
-	// e.g., r.CreateTimeout(ctx, plan.Timeouts) (see below). The times here are
-	// the defaults if they don't configure timeouts.
 	r.SetDefaultCreateTimeout(30 * time.Minute)
 	r.SetDefaultUpdateTimeout(30 * time.Minute)
 	r.SetDefaultDeleteTimeout(30 * time.Minute)
@@ -57,6 +52,7 @@ const (
 type resourceRecordsExclusive struct {
 	framework.ResourceWithConfigure
 	framework.WithTimeouts
+	framework.WithImportByID
 }
 
 func (r *resourceRecordsExclusive) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -144,20 +140,19 @@ func (r *resourceRecordsExclusive) Schema(ctx context.Context, req resource.Sche
 							NestedObject: schema.NestedBlockObject{
 								CustomType: fwtypes.NewListNestedObjectTypeOf[resourceRecordModel](ctx),
 								Blocks: map[string]schema.Block{
-								   "resource_record": schema.ListNestedBlock{
-									Validators: []validator.List{
-										listvalidator.SizeAtLeast(1),
-									},
-									Attributes: map[string]schema.Attribute{
-										"value": schema.StringAttribute{
-											Required: true,
-											Validators: []validator.String{
-													
-												stringvalidator.LengthAtMost(4000),
+									"resource_record": schema.ListNestedBlock{
+										Validators: []validator.List{
+											listvalidator.SizeAtLeast(1),
+										},
+										Attributes: map[string]schema.Attribute{
+											"value": schema.StringAttribute{
+												Required: true,
+												Validators: []validator.String{
+													stringvalidator.LengthAtMost(4000),
+												},
 											},
 										},
 									},
-
 								},
 							},
 						},
@@ -309,36 +304,43 @@ func (r *resourceRecordsExclusive) Schema(ctx context.Context, req resource.Sche
 
 func (r *resourceRecordsExclusive) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
-	conn := r.Meta().Client(ctx)
+	conn := r.Meta().Route53Client(ctx)
 
 	var plan resourceRecordsExclusiveModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	// TIP: -- 3. Populate a Create input structure
-	var input awstypes.
-	// TIP: Using a field name prefix allows mapping fields such as `ID` to `RecordsExclusiveId`
-	resp.Diagnostics.Append(flex.Expand(ctx, plan, &input, flex.WithFieldNamePrefix("RecordsExclusive"))...)
+	var resourceRecordSets []awstypes.ResourceRecordSet
+	resp.Diagnostics.Append(flex.Expand(ctx, plan.ResourceRecordSets, &resourceRecordSets)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	changes := make([]awstypes.Change, 0, len(resourceRecordSets))
+	for _, resourceRecordSet := range resourceRecordSets {
+		changes = append(changes, awstypes.Change{
+			Action:            awstypes.ChangeActionCreate,
+			ResourceRecordSet: &resourceRecordSet,
+		})
+	}
+	input := &route53.ChangeResourceRecordSetsInput{
+		HostedZoneId: plan.ID.ValueStringPointer(),
+		ChangeBatch: &awstypes.ChangeBatch{
+			Changes: changes,
+		},
+	}
 
-	// TIP: -- 4. Call the AWS Create function
-	out, err := conn.CreateRecordsExclusive(ctx, &input)
+	out, err := conn.ChangeResourceRecordSets(ctx, input)
 	if err != nil {
-		// TIP: Since ID has not been set yet, you cannot use plan.ID.String()
-		// in error messages at this point.
 		resp.Diagnostics.AddError(
-			create.ProblemStandardMessage(names.Route53, create.ErrActionCreating, ResNameRecordsExclusive, plan.Name.String(), err),
+			create.ProblemStandardMessage(names.Route53, create.ErrActionCreating, ResNameRecordsExclusive, plan.ID.String(), err),
 			err.Error(),
 		)
 		return
 	}
-	if out == nil || out.RecordsExclusive == nil {
+	if out == nil || out.ChangeInfo == nil {
 		resp.Diagnostics.AddError(
-			create.ProblemStandardMessage(names.Route53, create.ErrActionCreating, ResNameRecordsExclusive, plan.Name.String(), nil),
+			create.ProblemStandardMessage(names.Route53, create.ErrActionCreating, ResNameRecordsExclusive, plan.ID.String(), nil),
 			errors.New("empty output").Error(),
 		)
 		return
@@ -712,8 +714,9 @@ func findRecordsExclusiveByID(ctx context.Context, conn *route53.Client, id stri
 // https://developer.hashicorp.com/terraform/plugin/framework/handling-data/accessing-values
 
 type resourceRecordsExclusiveModel struct {
-	ID 		types.String `tfsdk:"zone_id"`
+	ID                 types.String                                            `tfsdk:"zone_id"`
 	ResourceRecordSets fwtypes.ListNestedObjectValueOf[resourceRecordSetModel] `tfsdk:"resource_record_set"`
+	Timeouts           timeouts.Value                                          `tfsdk:"timeouts"`
 }
 
 type resourceRecordSetModel struct {
