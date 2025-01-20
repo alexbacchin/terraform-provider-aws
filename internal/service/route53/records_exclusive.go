@@ -6,6 +6,8 @@ package route53
 import (
 	"context"
 	"errors"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/YakDriver/regexache"
@@ -311,17 +313,18 @@ func (r *resourceRecordsExclusive) Create(ctx context.Context, req resource.Crea
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 	var resourceRecordSets []awstypes.ResourceRecordSet
 	resp.Diagnostics.Append(flex.Expand(ctx, plan.ResourceRecordSets, &resourceRecordSets)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 	changes := make([]awstypes.Change, 0, len(resourceRecordSets))
-	for _, resourceRecordSet := range resourceRecordSets {
-		changes = append(changes, awstypes.Change{
+	for index, resourceRecordSet := range resourceRecordSets {
+		changes[index] = awstypes.Change{
 			Action:            awstypes.ChangeActionCreate,
 			ResourceRecordSet: &resourceRecordSet,
-		})
+		}
 	}
 	input := &route53.ChangeResourceRecordSetsInput{
 		HostedZoneId: plan.ID.ValueStringPointer(),
@@ -346,43 +349,22 @@ func (r *resourceRecordsExclusive) Create(ctx context.Context, req resource.Crea
 		return
 	}
 
-	// TIP: -- 5. Using the output from the create function, set attributes
-	resp.Diagnostics.Append(flex.Flatten(ctx, out, &plan)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// TIP: -- 6. Use a waiter to wait for create to complete
 	createTimeout := r.CreateTimeout(ctx, plan.Timeouts)
-	_, err = waitRecordsExclusiveCreated(ctx, conn, plan.ID.ValueString(), createTimeout)
+	_, err = waitChangeSync(ctx, conn, *out.ChangeInfo.Id, createTimeout)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			create.ProblemStandardMessage(names.Route53, create.ErrActionWaitingForCreation, ResNameRecordsExclusive, plan.Name.String(), err),
+			create.ProblemStandardMessage(names.Route53, create.ErrActionWaitingForCreation, ResNameRecordsExclusive, plan.ID.String(), err),
 			err.Error(),
 		)
 		return
 	}
-
 	// TIP: -- 7. Save the request plan to response state
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
 func (r *resourceRecordsExclusive) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	// TIP: ==== RESOURCE READ ====
-	// Generally, the Read function should do the following things. Make
-	// sure there is a good reason if you don't do one of these.
-	//
-	// 1. Get a client connection to the relevant service
-	// 2. Fetch the state
-	// 3. Get the resource from AWS
-	// 4. Remove resource from state if it is not found
-	// 5. Set the arguments and attributes
-	// 6. Set the state
+	conn := r.Meta().Route53Client(ctx)
 
-	// TIP: -- 1. Get a client connection to the relevant service
-	conn := r.Meta().Client(ctx)
-
-	// TIP: -- 2. Fetch the state
 	var state resourceRecordsExclusiveModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
@@ -567,98 +549,49 @@ func (r *resourceRecordsExclusive) ImportState(ctx context.Context, req resource
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-// TIP: ==== STATUS CONSTANTS ====
-// Create constants for states and statuses if the service does not
-// already have suitable constants. We prefer that you use the constants
-// provided in the service if available (e.g., awstypes.StatusInProgress).
-const (
-	statusChangePending = "Pending"
-	statusDeleting      = "Deleting"
-	statusNormal        = "Normal"
-	statusUpdated       = "Updated"
-)
+func findResourceRecordSetByID(ctx context.Context, conn *route53.Client, id string) (*[]awstypes.ResourceRecordSet, error) {
+	input := &route53.ListResourceRecordSetsInput{
+		HostedZoneId: aws.String(id),
+	}
+	var output []awstypes.ResourceRecordSet
 
-// TIP: ==== WAITERS ====
-// Some resources of some services have waiters provided by the AWS API.
-// Unless they do not work properly, use them rather than defining new ones
-// here.
-//
-// Sometimes we define the wait, status, and find functions in separate
-// files, wait.go, status.go, and find.go. Follow the pattern set out in the
-// service and define these where it makes the most sense.
-//
-// If these functions are used in the _test.go file, they will need to be
-// exported (i.e., capitalized).
-//
-// You will need to adjust the parameters and names to fit the service.
-func waitRecordsExclusiveCreated(ctx context.Context, conn *route53.Client, id string, timeout time.Duration) (*awstypes.RecordsExclusive, error) {
+	pages := route53.NewListResourceRecordSetsPaginator(conn, input)
+	for pages.HasMorePages() {
+		page, err := pages.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, v := range page.ResourceRecordSets {
+			output = append(output, v)
+		}
+	}
+	return &output, nil
+}
+
+func waitChangeSync(ctx context.Context, conn *route53.Client, id string, timeout time.Duration) (*awstypes.ChangeInfo, error) {
 	stateConf := &retry.StateChangeConf{
-		Pending:                   []string{},
-		Target:                    []string{statusNormal},
-		Refresh:                   statusRecordsExclusive(ctx, conn, id),
+		Pending:                   enum.Slice(awstypes.ChangeStatusPending),
+		Target:                    enum.Slice(awstypes.ChangeStatusInsync),
+		Refresh:                   statusChange(ctx, conn, id),
 		Timeout:                   timeout,
 		NotFoundChecks:            20,
 		ContinuousTargetOccurence: 2,
 	}
 
 	outputRaw, err := stateConf.WaitForStateContext(ctx)
-	if out, ok := outputRaw.(*route53.RecordsExclusive); ok {
-		return out, err
+
+	if output, ok := outputRaw.(*awstypes.ChangeInfo); ok {
+		return output, err
 	}
 
 	return nil, err
 }
 
-// TIP: It is easier to determine whether a resource is updated for some
-// resources than others. The best case is a status flag that tells you when
-// the update has been fully realized. Other times, you can check to see if a
-// key resource argument is updated to a new value or not.
-func waitRecordsExclusiveUpdated(ctx context.Context, conn *route53.Client, id string, timeout time.Duration) (*awstypes.RecordsExclusive, error) {
-	stateConf := &retry.StateChangeConf{
-		Pending:                   []string{statusChangePending},
-		Target:                    []string{statusUpdated},
-		Refresh:                   statusRecordsExclusive(ctx, conn, id),
-		Timeout:                   timeout,
-		NotFoundChecks:            20,
-		ContinuousTargetOccurence: 2,
-	}
-
-	outputRaw, err := stateConf.WaitForStateContext(ctx)
-	if out, ok := outputRaw.(*route53.RecordsExclusive); ok {
-		return out, err
-	}
-
-	return nil, err
-}
-
-// TIP: A deleted waiter is almost like a backwards created waiter. There may
-// be additional pending states, however.
-func waitRecordsExclusiveDeleted(ctx context.Context, conn *route53.Client, id string, timeout time.Duration) (*awstypes.RecordsExclusive, error) {
-	stateConf := &retry.StateChangeConf{
-		Pending: []string{statusDeleting, statusNormal},
-		Target:  []string{},
-		Refresh: statusRecordsExclusive(ctx, conn, id),
-		Timeout: timeout,
-	}
-
-	outputRaw, err := stateConf.WaitForStateContext(ctx)
-	if out, ok := outputRaw.(*route53.RecordsExclusive); ok {
-		return out, err
-	}
-
-	return nil, err
-}
-
-// TIP: ==== STATUS ====
-// The status function can return an actual status when that field is
-// available from the API (e.g., out.Status). Otherwise, you can use custom
-// statuses to communicate the states of the resource.
-//
-// Waiters consume the values returned by status functions. Design status so
-// that it can be reused by a create, update, and delete waiter, if possible.
-func statusRecordsExclusive(ctx context.Context, conn *route53.Client, id string) retry.StateRefreshFunc {
+func statusChangeInfo(ctx context.Context, conn *route53.Client, id string) retry.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		out, err := findRecordsExclusiveByID(ctx, conn, id)
+		output, err := findChangeInfoByID(ctx, conn, id)
+
 		if tfresource.NotFound(err) {
 			return nil, "", nil
 		}
@@ -667,51 +600,65 @@ func statusRecordsExclusive(ctx context.Context, conn *route53.Client, id string
 			return nil, "", err
 		}
 
-		return out, aws.ToString(out.Status), nil
+		return output, string(output.Status), nil
 	}
 }
 
-// TIP: ==== FINDERS ====
-// The find function is not strictly necessary. You could do the API
-// request from the status function. However, we have found that find often
-// comes in handy in other places besides the status function. As a result, it
-// is good practice to define it separately.
-func findRecordsExclusiveByID(ctx context.Context, conn *route53.Client, id string) (*awstypes.RecordsExclusive, error) {
-	in := &route53.GetRecordsExclusiveInput{
+func findChangeInfoByID(ctx context.Context, conn *route53.Client, id string) (*awstypes.ChangeInfo, error) {
+	input := &route53.GetChangeInput{
 		Id: aws.String(id),
 	}
 
-	out, err := conn.GetRecordsExclusive(ctx, in)
-	if err != nil {
-		if errs.IsA[*awstypes.ResourceNotFoundException](err) {
-			return nil, &retry.NotFoundError{
-				LastError:   err,
-				LastRequest: in,
-			}
-		}
+	output, err := conn.GetChange(ctx, input)
 
+	if errs.IsA[*awstypes.NoSuchChange](err) {
+		return nil, &retry.NotFoundError{
+			LastError:   err,
+			LastRequest: input,
+		}
+	}
+
+	if err != nil {
 		return nil, err
 	}
 
-	if out == nil || out.RecordsExclusive == nil {
-		return nil, tfresource.NewEmptyResultError(in)
+	if output == nil || output.ChangeInfo == nil {
+		return nil, tfresource.NewEmptyResultError(input)
 	}
 
-	return out.RecordsExclusive, nil
+	return output.ChangeInfo, nil
 }
 
-// TIP: ==== DATA STRUCTURES ====
-// With Terraform Plugin-Framework configurations are deserialized into
-// Go types, providing type safety without the need for type assertions.
-// These structs should match the schema definition exactly, and the `tfsdk`
-// tag value should match the attribute name.
-//
-// Nested objects are represented in their own data struct. These will
-// also have a corresponding attribute type mapping for use inside flex
-// functions.
-//
-// See more:
-// https://developer.hashicorp.com/terraform/plugin/framework/handling-data/accessing-values
+// function to sort awstypes.ResourceRecordSet by name, type
+func sortResourceRecordSets(resourceRecordSets []resourceRecordSetModel) {
+	sort.Slice(resourceRecordSets, func(i, j int) bool {
+		if reverseDNSName(resourceRecordSets[i].Name.ValueString()) != reverseDNSName(resourceRecordSets[j].Name.ValueString()) {
+			return resourceRecordSets[i].Name.ValueString() < resourceRecordSets[j].Name.ValueString()
+		}
+		return resourceRecordSets[i].Type.ValueString() < resourceRecordSets[j].Type.ValueString()
+	})
+}
+
+// reverseDNSName reverses the order of a DNS hostname string.
+// This is useful for sorting DNS names in a way that groups subdomains together.
+// For example, "www.example.com." becomes "com.example.www.".
+func reverseDNSName(dnsName string) string {
+	// Remove trailing dot if present
+	hasTrailingDot := strings.HasSuffix(dnsName, ".")
+	if hasTrailingDot {
+		dnsName = dnsName[:len(dnsName)-1]
+	}
+	segments := strings.Split(dnsName, ".")
+	for left, right := 0, len(segments)-1; left < right; left, right = left+1, right-1 {
+		segments[left], segments[right] = segments[right], segments[left]
+	}
+	reversed := strings.Join(segments, ".")
+	// Add trailing dot back if it was present
+	if hasTrailingDot {
+		reversed += "."
+	}
+	return reversed
+}
 
 type resourceRecordsExclusiveModel struct {
 	ID                 types.String                                            `tfsdk:"zone_id"`
