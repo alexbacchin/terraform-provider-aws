@@ -984,6 +984,80 @@ func TestAccELBV2LoadBalancer_updateIPAddressType(t *testing.T) {
 	})
 }
 
+func TestAccELBV2LoadBalancer_ApplicationLoadBalancer_ipamPools(t *testing.T) {
+	ctx := acctest.Context(t)
+	var lb awstypes.LoadBalancer
+	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
+	resourceName := "aws_lb.test"
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
+		ErrorCheck:               acctest.ErrorCheck(t, names.ELBV2ServiceID),
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
+		CheckDestroy:             testAccCheckLoadBalancerDestroy(ctx),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccLoadBalancerConfig_ipamPools(rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckLoadBalancerExists(ctx, resourceName, &lb),
+					resource.TestCheckResourceAttr(resourceName, names.AttrIPAddressType, "ipv4"),
+					resource.TestCheckResourceAttrSet(resourceName, "ipam_pools.0.ipv4_ipam_pool_id"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				Config: testAccLoadBalancerConfig_updateIpamPools(rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckLoadBalancerExists(ctx, resourceName, &lb),
+					resource.TestCheckResourceAttr(resourceName, names.AttrIPAddressType, "ipv4"),
+					resource.TestCheckResourceAttrSet(resourceName, "ipam_pools.0.ipv4_ipam_pool_id"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccELBV2LoadBalancer_ApplicationLoadBalancer_removeIpamPools(t *testing.T) {
+	ctx := acctest.Context(t)
+	var lb awstypes.LoadBalancer
+	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
+	resourceName := "aws_lb.test"
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(ctx, t) },
+		ErrorCheck:               acctest.ErrorCheck(t, names.ELBV2ServiceID),
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
+		CheckDestroy:             testAccCheckLoadBalancerDestroy(ctx),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccLoadBalancerConfig_ipamPools(rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckLoadBalancerExists(ctx, resourceName, &lb),
+					resource.TestCheckResourceAttr(resourceName, names.AttrIPAddressType, "ipv4"),
+					resource.TestCheckResourceAttrSet(resourceName, "ipam_pools.0.ipv4_ipam_pool_id"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				Config: testAccLoadBalancerConfig_removeIpamPools(rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckLoadBalancerExists(ctx, resourceName, &lb),
+					resource.TestCheckResourceAttr(resourceName, names.AttrIPAddressType, "ipv4"),
+					resource.TestCheckNoResourceAttr(resourceName, "ipam_pools.0.ipv4_ipam_pool_id"),
+				),
+			},
+		},
+	})
+}
+
 func TestAccELBV2LoadBalancer_ApplicationLoadBalancer_updatedSecurityGroups(t *testing.T) {
 	ctx := acctest.Context(t)
 	var pre, post awstypes.LoadBalancer
@@ -2366,6 +2440,148 @@ resource "aws_lb" "test2" {
 
   idle_timeout               = 30
   enable_deletion_protection = false
+}
+`, rName))
+}
+
+func testAccLoadBalancerConfig_ipamPools(rName string) string {
+	return acctest.ConfigCompose(testAccLoadBalancerConfig_baseInternal(rName, 2), fmt.Sprintf(`
+data "aws_region" "current" {}
+
+resource "aws_vpc_ipam" "test" {
+  operating_regions {
+    region_name = data.aws_region.current.name
+  }
+  tier = "free"
+}
+
+resource "aws_vpc_ipam_pool" "test_pool" {
+  address_family   = "ipv4"
+  ipam_scope_id    = aws_vpc_ipam.test.public_default_scope_id
+  locale           = data.aws_region.current.name
+  public_ip_source = "amazon"
+  description      = "Test Amazon CIDR Pool"
+  aws_service      = "ec2"
+}
+
+resource "aws_vpc_ipam_pool_cidr" "test_cidr" {
+  ipam_pool_id   = aws_vpc_ipam_pool.test_pool.id
+  netmask_length = 30
+}
+
+resource "aws_internet_gateway" "test" {
+  vpc_id = aws_vpc.test.id
+
+  tags = {
+    Name = %[1]q
+  }
+}
+
+resource "aws_lb" "test" {
+  name            = %[1]q
+  ip_address_type = "ipv4"
+  security_groups = [aws_security_group.test.id]
+  subnets         = aws_subnet.test[*].id
+
+  ipam_pools {
+    ipv4_ipam_pool_id = aws_vpc_ipam_pool.test_pool.id
+  }
+
+  idle_timeout               = 30
+  enable_deletion_protection = false
+  
+  depends_on = [aws_vpc_ipam_pool_cidr.test_cidr, aws_internet_gateway.test]
+}
+`, rName))
+}
+
+func testAccLoadBalancerConfig_updateIpamPools(rName string) string {
+	return acctest.ConfigCompose(testAccLoadBalancerConfig_baseInternal(rName, 2), fmt.Sprintf(`
+data "aws_region" "current" {}
+
+resource "aws_vpc_ipam" "test" {
+  operating_regions {
+    region_name = data.aws_region.current.name
+  }
+  tier = "free"
+}
+
+resource "aws_vpc_ipam_pool" "test_pool" {
+  address_family   = "ipv4"
+  ipam_scope_id    = aws_vpc_ipam.test.public_default_scope_id
+  locale           = data.aws_region.current.name
+  public_ip_source = "amazon"
+  description      = "Test Amazon CIDR Pool"
+  aws_service      = "ec2"
+}
+
+resource "aws_vpc_ipam_pool" "test_pool2" {
+  address_family   = "ipv4"
+  ipam_scope_id    = aws_vpc_ipam.test.public_default_scope_id
+  locale           = data.aws_region.current.name
+  public_ip_source = "amazon"
+  description      = "Test Amazon CIDR Pool 2"
+  aws_service      = "ec2"
+}
+
+resource "aws_vpc_ipam_pool_cidr" "test_cidr" {
+  ipam_pool_id   = aws_vpc_ipam_pool.test_pool.id
+  netmask_length = 30
+}
+
+
+resource "aws_vpc_ipam_pool_cidr" "test_cidr2" {
+  ipam_pool_id   = aws_vpc_ipam_pool.test_pool2.id
+  netmask_length = 30
+}
+
+resource "aws_internet_gateway" "test" {
+  vpc_id = aws_vpc.test.id
+
+  tags = {
+    Name = %[1]q
+  }
+}
+
+resource "aws_lb" "test" {
+  name            = %[1]q
+  ip_address_type = "ipv4"
+  security_groups = [aws_security_group.test.id]
+  subnets         = aws_subnet.test[*].id
+
+  ipam_pools {
+    ipv4_ipam_pool_id = aws_vpc_ipam_pool.test_pool2.id
+  }
+
+  idle_timeout               = 30
+  enable_deletion_protection = false
+  
+  depends_on = [aws_vpc_ipam_pool_cidr.test_cidr2, aws_internet_gateway.test]
+}
+`, rName))
+}
+
+func testAccLoadBalancerConfig_removeIpamPools(rName string) string {
+	return acctest.ConfigCompose(testAccLoadBalancerConfig_baseInternal(rName, 2), fmt.Sprintf(`
+
+
+resource "aws_internet_gateway" "test" {
+  vpc_id = aws_vpc.test.id
+
+  tags = {
+    Name = %[1]q
+  }
+}
+
+resource "aws_lb" "test" {
+  name            = %[1]q
+  ip_address_type = "ipv4"
+  security_groups = [aws_security_group.test.id]
+  subnets         = aws_subnet.test[*].id
+
+  idle_timeout               = 30
+  enable_deletion_protection = false
+  
 }
 `, rName))
 }
