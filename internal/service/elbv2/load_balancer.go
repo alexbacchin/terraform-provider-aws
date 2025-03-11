@@ -660,20 +660,23 @@ func resourceLoadBalancerUpdate(ctx context.Context, d *schema.ResourceData, met
 
 	if d.HasChange("ipam_pools") {
 
+		oldiPamPoolsChange, newiPamPoolsChange := d.GetChange("`ipam_pools`")
+		oldiPamPools := expandIpamPools(oldiPamPoolsChange.([]interface{}))
+		newiPamPools := expandIpamPools(newiPamPoolsChange.([]interface{}))
+
 		input := &elasticloadbalancingv2.ModifyIpPoolsInput{
 			LoadBalancerArn: aws.String(d.Id()),
 		}
-		ipamPools := expandIpamPools(d.Get("ipam_pools").([]interface{}))
-		if ipamPools.Ipv4IpamPoolId == nil {
+		if newiPamPools.Ipv4IpamPoolId == nil {
 			input.RemoveIpamPools = []awstypes.RemoveIpamPoolEnum{awstypes.RemoveIpamPoolEnumIpv4}
 		} else {
-			input.IpamPools = ipamPools
+			input.IpamPools = newiPamPools
 		}
 		_, err := conn.ModifyIpPools(ctx, input)
 
 		ec2conn := meta.(*conns.AWSClient).EC2Client(ctx)
 
-		if err := waitForALBNetworkInterfacesToDetach(ctx, ec2conn, d.Id(), ipv4IpamPoolId); err != nil {
+		if err := waitForALBNetworkInterfacesToDetach(ctx, ec2conn, d.Id(), *oldiPamPools.Ipv4IpamPoolId); err != nil {
 			log.Printf("[WARN] Failed to cleanup ENIs for ALB (%s): %s", d.Id(), err)
 		}
 		if err != nil {
