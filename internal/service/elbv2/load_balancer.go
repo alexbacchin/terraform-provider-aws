@@ -660,27 +660,30 @@ func resourceLoadBalancerUpdate(ctx context.Context, d *schema.ResourceData, met
 
 	if d.HasChange("ipam_pools") {
 
-		oldiPamPoolsChange, newiPamPoolsChange := d.GetChange("`ipam_pools`")
-		oldiPamPools := expandIpamPools(oldiPamPoolsChange.([]interface{}))
-		newiPamPools := expandIpamPools(newiPamPoolsChange.([]interface{}))
-
 		input := &elasticloadbalancingv2.ModifyIpPoolsInput{
 			LoadBalancerArn: aws.String(d.Id()),
 		}
-		if newiPamPools.Ipv4IpamPoolId == nil {
+		ipamPools := expandIpamPools(d.Get("ipam_pools").([]interface{}))
+		if ipamPools == nil {
 			input.RemoveIpamPools = []awstypes.RemoveIpamPoolEnum{awstypes.RemoveIpamPoolEnumIpv4}
 		} else {
-			input.IpamPools = newiPamPools
+			input.IpamPools = ipamPools
 		}
 		_, err := conn.ModifyIpPools(ctx, input)
 
-		ec2conn := meta.(*conns.AWSClient).EC2Client(ctx)
+		//this is the code to clean up the ENIs when the previous ipamPool is replaced,
+		//however AWS does not delete the ENI and EIP associated with the previous ipamPool
+		//maybe by design or a bug, so we are not going to use this code
 
-		if err := waitForALBNetworkInterfacesToDetach(ctx, ec2conn, d.Id(), *oldiPamPools.Ipv4IpamPoolId); err != nil {
-			log.Printf("[WARN] Failed to cleanup ENIs for ALB (%s): %s", d.Id(), err)
-		}
+		// oldiPamPoolsChange, _ := d.GetChange("`ipam_pools`")
+		// oldiPamPools := expandIpamPools(oldiPamPoolsChange.([]interface{}))
+
+		// ec2conn := meta.(*conns.AWSClient).EC2Client(ctx)
+		// if err := waitForALBNetworkInterfacesToDetach(ctx, ec2conn, d.Id(), *oldiPamPools.Ipv4IpamPoolId); err != nil {
+		// 	log.Printf("[WARN] Failed to cleanup ENIs for ALB (%s): %s", d.Id(), err)
+		// }
 		if err != nil {
-			return sdkdiag.AppendErrorf(diags, "setting ELBv2 Load Balancer (%s) address type: %s", d.Id(), err)
+			return sdkdiag.AppendErrorf(diags, "setting ELBv2 Load Balancer (%s) iPamPools: %s", d.Id(), err)
 		}
 	}
 
@@ -1017,10 +1020,8 @@ func waitLoadBalancerActive(ctx context.Context, conn *elasticloadbalancingv2.Cl
 	return nil, err
 }
 
-// ALB automatically creates ENI(s) on creation
-// but the cleanup is asynchronous and may take time
-// which then blocks IGW, SG or VPC on deletion
-// So we make the cleanup "synchronous" here
+// replaced previous ALB ENI cleanup with this function, AWS has changed the way ENIs are attached to ALBs
+// Also it handles eventual consistency check for EIP disassociation IPAM pool deletion
 func waitForALBNetworkInterfacesToDetach(ctx context.Context, conn *ec2.Client, arn string, ipv4IpamPoolId string) error {
 	name, err := loadBalancerNameFromARN(arn)
 	if err != nil {
