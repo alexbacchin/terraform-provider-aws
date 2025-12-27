@@ -33,6 +33,19 @@ func (p *servicePackage) FrameworkResources(ctx context.Context) []*inttypes.Ser
 			Region:   unique.Make(inttypes.ResourceRegionDefault()),
 		},
 		{
+			Factory:  newResourceProxyConfiguration,
+			TypeName: "aws_networkfirewall_proxy_configuration",
+			Name:     "Proxy Configuration",
+			Tags: unique.Make(inttypes.ServicePackageResourceTags{
+				IdentifierAttribute: names.AttrARN,
+			}),
+			Region:   unique.Make(inttypes.ResourceRegionDefault()),
+			Identity: inttypes.RegionalARNIdentity(),
+			Import: inttypes.FrameworkImport{
+				WrappedImport: true,
+			},
+		},
+		{
 			Factory:  newTLSInspectionConfigurationResource,
 			TypeName: "aws_networkfirewall_tls_inspection_configuration",
 			Name:     "TLS Inspection Configuration",

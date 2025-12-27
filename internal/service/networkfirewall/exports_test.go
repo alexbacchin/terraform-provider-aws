@@ -9,6 +9,7 @@ var (
 	ResourceFirewallPolicy                           = resourceFirewallPolicy
 	ResourceFirewallTransitGatewayAttachmentAccepter = newFirewallTransitGatewayAttachmentAccepterResource
 	ResourceLoggingConfiguration                     = resourceLoggingConfiguration
+	ResourceProxyConfiguration                       = newResourceProxyConfiguration
 	ResourceResourcePolicy                           = resourceResourcePolicy
 	ResourceRuleGroup                                = resourceRuleGroup
 	ResourceTLSInspectionConfiguration               = newTLSInspectionConfigurationResource
@@ -17,6 +18,7 @@ var (
 	FindFirewallByARN                   = findFirewallByARN
 	FindFirewallPolicyByARN             = findFirewallPolicyByARN
 	FindLoggingConfigurationByARN       = findLoggingConfigurationByARN
+	FindProxyConfigurationByARN         = findProxyConfigurationByARN
 	FindResourcePolicyByARN             = findResourcePolicyByARN
 	FindRuleGroupByARN                  = findRuleGroupByARN
 	FindTLSInspectionConfigurationByARN = findTLSInspectionConfigurationByARN

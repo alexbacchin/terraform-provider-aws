@@ -1,0 +1,147 @@
+// Copyright IBM Corp. 2014, 2025
+// SPDX-License-Identifier: MPL-2.0
+
+package networkfirewall_test
+
+import (
+	"context"
+	"fmt"
+	"testing"
+
+	"github.com/YakDriver/regexache"
+	"github.com/aws/aws-sdk-go-v2/service/networkfirewall"
+	sdkacctest "github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/hashicorp/terraform-provider-aws/internal/acctest"
+	"github.com/hashicorp/terraform-provider-aws/internal/conns"
+	"github.com/hashicorp/terraform-provider-aws/internal/retry"
+	tfnetworkfirewall "github.com/hashicorp/terraform-provider-aws/internal/service/networkfirewall"
+	"github.com/hashicorp/terraform-provider-aws/names"
+)
+
+func TestAccNetworkFirewallProxyConfiguration_basic(t *testing.T) {
+	ctx := acctest.Context(t)
+	var v networkfirewall.DescribeProxyConfigurationOutput
+	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
+	resourceName := "aws_networkfirewall_proxy_configuration.test"
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheck(ctx, t) },
+		ErrorCheck:               acctest.ErrorCheck(t, names.NetworkFirewall),
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
+		CheckDestroy:             testAccCheckProxyConfigurationDestroy(ctx),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccProxyConfigurationConfig_basic(rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckProxyConfigurationExists(ctx, resourceName, &v),
+					acctest.MatchResourceAttrRegionalARN(ctx, resourceName, names.AttrARN, "network-firewall", regexache.MustCompile(`proxy-configuration/.+$`)),
+					resource.TestCheckResourceAttr(resourceName, names.AttrName, rName),
+					resource.TestCheckResourceAttr(resourceName, "default_rule_phase_actions.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "default_rule_phase_actions.0.post_response", "ALLOW"),
+					resource.TestCheckResourceAttr(resourceName, "default_rule_phase_actions.0.pre_dns", "ALLOW"),
+					resource.TestCheckResourceAttr(resourceName, "default_rule_phase_actions.0.pre_request", "ALLOW"),
+					resource.TestCheckResourceAttr(resourceName, acctest.CtTagsPercent, "0"),
+					resource.TestCheckResourceAttrSet(resourceName, "update_token"),
+				),
+			},
+			{
+				ResourceName:                         resourceName,
+				ImportState:                          true,
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: names.AttrName,
+				ImportStateVerifyIgnore:              []string{"update_token"},
+			},
+		},
+	})
+}
+
+func TestAccNetworkFirewallProxyConfiguration_disappears(t *testing.T) {
+	ctx := acctest.Context(t)
+	var v networkfirewall.DescribeProxyConfigurationOutput
+	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
+	resourceName := "aws_networkfirewall_proxy_configuration.test"
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheck(ctx, t) },
+		ErrorCheck:               acctest.ErrorCheck(t, names.NetworkFirewall),
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
+		CheckDestroy:             testAccCheckProxyConfigurationDestroy(ctx),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccProxyConfigurationConfig_basic(rName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckProxyConfigurationExists(ctx, resourceName, &v),
+					acctest.CheckFrameworkResourceDisappears(ctx, acctest.Provider, tfnetworkfirewall.ResourceProxyConfiguration, resourceName),
+				),
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
+func testAccCheckProxyConfigurationDestroy(ctx context.Context) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		conn := acctest.Provider.Meta().(*conns.AWSClient).NetworkFirewallClient(ctx)
+
+		for _, rs := range s.RootModule().Resources {
+			if rs.Type != "aws_networkfirewall_proxy_configuration" {
+				continue
+			}
+
+			out, err := tfnetworkfirewall.FindProxyConfigurationByARN(ctx, conn, rs.Primary.ID)
+
+			if retry.NotFound(err) {
+				continue
+			}
+
+			if out != nil && out.ProxyConfiguration != nil && out.ProxyConfiguration.DeleteTime != nil {
+				continue
+			}
+
+			if err != nil {
+				return err
+			}
+
+			return fmt.Errorf("NetworkFirewall Proxy Configuration %s still exists", rs.Primary.ID)
+		}
+
+		return nil
+	}
+}
+
+func testAccCheckProxyConfigurationExists(ctx context.Context, n string, v *networkfirewall.DescribeProxyConfigurationOutput) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[n]
+		if !ok {
+			return fmt.Errorf("Not found: %s", n)
+		}
+
+		conn := acctest.Provider.Meta().(*conns.AWSClient).NetworkFirewallClient(ctx)
+
+		output, err := tfnetworkfirewall.FindProxyConfigurationByARN(ctx, conn, rs.Primary.Attributes[names.AttrARN])
+
+		if err != nil {
+			return err
+		}
+
+		*v = *output
+
+		return nil
+	}
+}
+
+func testAccProxyConfigurationConfig_basic(rName string) string {
+	return fmt.Sprintf(`
+resource "aws_networkfirewall_proxy_configuration" "test" {
+  name = %[1]q
+
+  default_rule_phase_actions {
+    post_response = "ALLOW"
+    pre_dns       = "ALLOW"
+    pre_request   = "ALLOW"
+  }
+}
+`, rName)
+}
