@@ -12,8 +12,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/networkfirewall"
 	awstypes "github.com/aws/aws-sdk-go-v2/service/networkfirewall/types"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -32,7 +34,8 @@ import (
 
 // @FrameworkResource("aws_networkfirewall_proxy_configuration", name="Proxy Configuration")
 // @Tags(identifierAttribute="arn")
-// @ArnIdentity
+// @ArnIdentity(identityDuplicateAttributes="id")
+// @ArnFormat("proxy-configuration/{name}")
 func newResourceProxyConfiguration(_ context.Context) (resource.ResourceWithConfigure, error) {
 	r := &resourceProxyConfiguration{}
 
@@ -50,7 +53,11 @@ func (r *resourceProxyConfiguration) Schema(ctx context.Context, req resource.Sc
 			names.AttrARN: framework.ARNAttributeComputedOnly(),
 			names.AttrDescription: schema.StringAttribute{
 				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
+			names.AttrID: framework.IDAttributeDeprecatedWithAlternate(path.Root(names.AttrARN)),
 			names.AttrName: schema.StringAttribute{
 				Required: true,
 				PlanModifiers: []planmodifier.String{
@@ -61,11 +68,17 @@ func (r *resourceProxyConfiguration) Schema(ctx context.Context, req resource.Sc
 				CustomType:  fwtypes.ListOfStringType,
 				ElementType: types.StringType,
 				Optional:    true,
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.RequiresReplace(),
+				},
 			},
 			"rule_group_names": schema.ListAttribute{
 				CustomType:  fwtypes.ListOfStringType,
 				ElementType: types.StringType,
 				Optional:    true,
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.RequiresReplace(),
+				},
 			},
 			names.AttrTags:    tftags.TagsAttribute(),
 			names.AttrTagsAll: tftags.TagsAttributeComputedOnly(),
@@ -120,15 +133,19 @@ func (r *resourceProxyConfiguration) Create(ctx context.Context, req resource.Cr
 
 	out, err := conn.CreateProxyConfiguration(ctx, &input)
 	if err != nil {
-		smerr.AddError(ctx, &resp.Diagnostics, err, smerr.ID, data.Name.String())
+		smerr.AddError(ctx, &resp.Diagnostics, err, smerr.ID, data.ProxyConfigurationName.String())
 		return
 	}
 	if out == nil || out.ProxyConfiguration == nil {
-		smerr.AddError(ctx, &resp.Diagnostics, errors.New("empty output"), smerr.ID, data.Name.String())
+		smerr.AddError(ctx, &resp.Diagnostics, errors.New("empty output"), smerr.ID, data.ProxyConfigurationName.String())
+		return
+	}
+	smerr.AddEnrich(ctx, &resp.Diagnostics, flex.Flatten(ctx, out.ProxyConfiguration, &data))
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	data.ARN = flex.StringToFramework(ctx, out.ProxyConfiguration.ProxyConfigurationArn)
+	data.ID = data.ProxyConfigurationArn
 	data.UpdateToken = flex.StringToFramework(ctx, out.UpdateToken)
 
 	smerr.AddEnrich(ctx, &resp.Diagnostics, resp.State.Set(ctx, data))
@@ -143,14 +160,14 @@ func (r *resourceProxyConfiguration) Read(ctx context.Context, req resource.Read
 		return
 	}
 
-	out, err := findProxyConfigurationByARN(ctx, conn, state.ARN.ValueString())
+	out, err := findProxyConfigurationByARN(ctx, conn, state.ID.ValueString())
 	if retry.NotFound(err) {
 		resp.Diagnostics.Append(fwdiag.NewResourceNotFoundWarningDiagnostic(err))
 		resp.State.RemoveResource(ctx)
 		return
 	}
 	if err != nil {
-		smerr.AddError(ctx, &resp.Diagnostics, err, smerr.ID, state.ARN.String())
+		smerr.AddError(ctx, &resp.Diagnostics, err, smerr.ID, state.ID.String())
 		return
 	}
 
@@ -184,7 +201,6 @@ func (r *resourceProxyConfiguration) Update(ctx context.Context, req resource.Up
 
 	if diff.HasChanges() {
 		var input networkfirewall.UpdateProxyConfigurationInput
-		input.ProxyConfigurationArn = state.ARN.ValueStringPointer()
 		input.UpdateToken = state.UpdateToken.ValueStringPointer()
 
 		smerr.AddEnrich(ctx, &resp.Diagnostics, flex.Expand(ctx, plan.DefaultRulePhaseActions, &input.DefaultRulePhaseActions))
@@ -194,11 +210,11 @@ func (r *resourceProxyConfiguration) Update(ctx context.Context, req resource.Up
 
 		out, err := conn.UpdateProxyConfiguration(ctx, &input)
 		if err != nil {
-			smerr.AddError(ctx, &resp.Diagnostics, err, smerr.ID, state.ARN.String())
+			smerr.AddError(ctx, &resp.Diagnostics, err, smerr.ID, state.ID.String())
 			return
 		}
 		if out == nil || out.ProxyConfiguration == nil {
-			smerr.AddError(ctx, &resp.Diagnostics, errors.New("empty output"), smerr.ID, state.ARN.String())
+			smerr.AddError(ctx, &resp.Diagnostics, errors.New("empty output"), smerr.ID, state.ID.String())
 			return
 		}
 
@@ -218,7 +234,7 @@ func (r *resourceProxyConfiguration) Delete(ctx context.Context, req resource.De
 	}
 
 	input := networkfirewall.DeleteProxyConfigurationInput{
-		ProxyConfigurationArn: state.ARN.ValueStringPointer(),
+		ProxyConfigurationArn: state.ProxyConfigurationArn.ValueStringPointer(),
 	}
 
 	_, err := conn.DeleteProxyConfiguration(ctx, &input)
@@ -227,17 +243,18 @@ func (r *resourceProxyConfiguration) Delete(ctx context.Context, req resource.De
 			return
 		}
 
-		smerr.AddError(ctx, &resp.Diagnostics, err, smerr.ID, state.ARN.String())
+		smerr.AddError(ctx, &resp.Diagnostics, err, smerr.ID, state.ID.String())
 		return
 	}
 }
 
 type resourceProxyConfigurationModel struct {
 	framework.WithRegionModel
-	ARN                     types.String                                                  `tfsdk:"arn"`
 	DefaultRulePhaseActions fwtypes.ListNestedObjectValueOf[defaultRulePhaseActionsModel] `tfsdk:"default_rule_phase_actions"`
 	Description             types.String                                                  `tfsdk:"description"`
-	Name                    types.String                                                  `tfsdk:"name"`
+	ID                      types.String                                                  `tfsdk:"id"`
+	ProxyConfigurationArn   types.String                                                  `tfsdk:"arn"`
+	ProxyConfigurationName  types.String                                                  `tfsdk:"name"`
 	RuleGroupArns           fwtypes.ListValueOf[types.String]                             `tfsdk:"rule_group_arns"`
 	RuleGroupNames          fwtypes.ListValueOf[types.String]                             `tfsdk:"rule_group_names"`
 	Tags                    tftags.Map                                                    `tfsdk:"tags"`

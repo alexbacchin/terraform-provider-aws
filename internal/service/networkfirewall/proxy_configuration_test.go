@@ -47,11 +47,10 @@ func TestAccNetworkFirewallProxyConfiguration_basic(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:                         resourceName,
-				ImportState:                          true,
-				ImportStateVerify:                    true,
-				ImportStateVerifyIdentifierAttribute: names.AttrName,
-				ImportStateVerifyIgnore:              []string{"update_token"},
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"update_token"},
 			},
 		},
 	})
