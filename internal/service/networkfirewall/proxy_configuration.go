@@ -288,5 +288,11 @@ func findProxyConfigurationByARN(ctx context.Context, conn *networkfirewall.Clie
 		return nil, smarterr.NewError(tfresource.NewEmptyResultError(&input))
 	}
 
+	if out.ProxyConfiguration.DeleteTime != nil {
+		return nil, smarterr.NewError(&retry.NotFoundError{
+			Message: "resource is deleted",
+		})
+	}
+
 	return out, nil
 }
