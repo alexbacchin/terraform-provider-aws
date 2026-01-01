@@ -67,6 +67,9 @@ func (r *resourceProxyConfiguration) Schema(ctx context.Context, req resource.Sc
 			names.AttrTagsAll: tftags.TagsAttributeComputedOnly(),
 			"update_token": schema.StringAttribute{
 				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Blocks: map[string]schema.Block{
