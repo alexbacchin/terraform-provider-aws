@@ -15,7 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -62,22 +61,6 @@ func (r *resourceProxyConfiguration) Schema(ctx context.Context, req resource.Sc
 				Required: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"rule_group_arns": schema.ListAttribute{
-				CustomType:  fwtypes.ListOfStringType,
-				ElementType: types.StringType,
-				Optional:    true,
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.RequiresReplace(),
-				},
-			},
-			"rule_group_names": schema.ListAttribute{
-				CustomType:  fwtypes.ListOfStringType,
-				ElementType: types.StringType,
-				Optional:    true,
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.RequiresReplace(),
 				},
 			},
 			names.AttrTags:    tftags.TagsAttribute(),
@@ -255,8 +238,6 @@ type resourceProxyConfigurationModel struct {
 	ID                      types.String                                                  `tfsdk:"id"`
 	ProxyConfigurationArn   types.String                                                  `tfsdk:"arn"`
 	ProxyConfigurationName  types.String                                                  `tfsdk:"name"`
-	RuleGroupArns           fwtypes.ListValueOf[types.String]                             `tfsdk:"rule_group_arns"`
-	RuleGroupNames          fwtypes.ListValueOf[types.String]                             `tfsdk:"rule_group_names"`
 	Tags                    tftags.Map                                                    `tfsdk:"tags"`
 	TagsAll                 tftags.Map                                                    `tfsdk:"tags_all"`
 	UpdateToken             types.String                                                  `tfsdk:"update_token"`
