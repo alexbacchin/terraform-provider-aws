@@ -11,6 +11,7 @@ var (
 	ResourceLoggingConfiguration                     = resourceLoggingConfiguration
 	ResourceProxyConfiguration                       = newResourceProxyConfiguration
 	ResourceProxyRuleGroup                           = newResourceProxyRuleGroup
+	ResourceProxyRules                               = newResourceProxyRules
 	ResourceResourcePolicy                           = resourceResourcePolicy
 	ResourceRuleGroup                                = resourceRuleGroup
 	ResourceTLSInspectionConfiguration               = newTLSInspectionConfigurationResource
