@@ -38,7 +38,6 @@ func TestAccNetworkFirewallProxyRules_basic(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckProxyRulesExists(ctx, resourceName, &v),
 					resource.TestCheckResourceAttrPair(resourceName, "proxy_rule_group_arn", ruleGroupResourceName, names.AttrARN),
-					resource.TestCheckResourceAttrPair(resourceName, "proxy_rule_group_name", ruleGroupResourceName, names.AttrName),
 					// Pre-DNS phase
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.proxy_rule_name", fmt.Sprintf("%s-predns", rName)),
@@ -69,9 +68,9 @@ func TestAccNetworkFirewallProxyRules_basic(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateVerify: true,
+				Config:       testAccProxyRulesConfig_single(rName),
+				ResourceName: resourceName,
+				ImportState:  true,
 			},
 		},
 	})
@@ -98,7 +97,7 @@ func TestAccNetworkFirewallProxyRules_disappears(t *testing.T) {
 				ExpectNonEmptyPlan: true,
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PostApplyPostRefresh: []plancheck.PlanCheck{
-						plancheck.ExpectResourceAction(resourceName, plancheck.ResourceActionCreate),
+						plancheck.ExpectResourceAction(resourceName, plancheck.ResourceActionUpdate),
 					},
 				},
 			},
@@ -128,12 +127,19 @@ func TestAccNetworkFirewallProxyRules_updateAdd(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccProxyRulesConfig_basic(rName),
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				Config: testAccProxyRulesConfig_add(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckProxyRulesExists(ctx, resourceName, &v2),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "pre_request.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "post_response.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "pre_request.0.proxy_rule_name", fmt.Sprintf("%s-prerequest-new", rName)),
+					resource.TestCheckResourceAttr(resourceName, "post_response.0.proxy_rule_name", fmt.Sprintf("%s-postresponse-new", rName)),
 				),
 			},
 		},
@@ -157,15 +163,23 @@ func TestAccNetworkFirewallProxyRules_updateModify(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckProxyRulesExists(ctx, resourceName, &v1),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.action", "ALLOW"),
+					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.conditions.0.condition_values.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.conditions.0.condition_values.0", "amazonaws.com"),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 			{
 				Config: testAccProxyRulesConfig_modified(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckProxyRulesExists(ctx, resourceName, &v2),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.action", "DENY"),
-					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.conditions.0.condition_values.0", "amazonaws.com"),
+					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.conditions.0.condition_values.#", "2"),
+					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.conditions.0.condition_values.0", "example.com"),
+					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.conditions.0.condition_values.1", "test.com"),
 				),
 			},
 		},
@@ -194,6 +208,11 @@ func TestAccNetworkFirewallProxyRules_updateRemove(t *testing.T) {
 				),
 			},
 			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
 				Config: testAccProxyRulesConfig_single(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckProxyRulesExists(ctx, resourceName, &v2),
@@ -201,6 +220,58 @@ func TestAccNetworkFirewallProxyRules_updateRemove(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "pre_request.#", "0"),
 					resource.TestCheckResourceAttr(resourceName, "post_response.#", "0"),
 				),
+			},
+		},
+	})
+}
+
+func TestAccNetworkFirewallProxyRules_multipleRulesPerPhase(t *testing.T) {
+	ctx := acctest.Context(t)
+	var v networkfirewall.DescribeProxyRuleGroupOutput
+	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
+	resourceName := "aws_networkfirewall_proxy_rules.test"
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheck(ctx, t) },
+		ErrorCheck:               acctest.ErrorCheck(t, names.NetworkFirewall),
+		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
+		CheckDestroy:             testAccCheckProxyRulesDestroy(ctx),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccProxyRulesConfig_multiplePerPhase(rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckProxyRulesExists(ctx, resourceName, &v),
+					// Pre-DNS phase - 2 rules
+					resource.TestCheckResourceAttr(resourceName, "pre_dns.#", "2"),
+					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.proxy_rule_name", fmt.Sprintf("%s-predns-1", rName)),
+					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.action", "ALLOW"),
+					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.conditions.0.condition_values.0", "amazonaws.com"),
+					resource.TestCheckResourceAttr(resourceName, "pre_dns.1.proxy_rule_name", fmt.Sprintf("%s-predns-2", rName)),
+					resource.TestCheckResourceAttr(resourceName, "pre_dns.1.action", "DENY"),
+					resource.TestCheckResourceAttr(resourceName, "pre_dns.1.conditions.0.condition_values.0", "malicious.com"),
+					// Pre-REQUEST phase - 2 rules
+					resource.TestCheckResourceAttr(resourceName, "pre_request.#", "2"),
+					resource.TestCheckResourceAttr(resourceName, "pre_request.0.proxy_rule_name", fmt.Sprintf("%s-prerequest-1", rName)),
+					resource.TestCheckResourceAttr(resourceName, "pre_request.0.action", "DENY"),
+					resource.TestCheckResourceAttr(resourceName, "pre_request.0.conditions.0.condition_values.0", "DELETE"),
+					resource.TestCheckResourceAttr(resourceName, "pre_request.1.proxy_rule_name", fmt.Sprintf("%s-prerequest-2", rName)),
+					resource.TestCheckResourceAttr(resourceName, "pre_request.1.action", "DENY"),
+					resource.TestCheckResourceAttr(resourceName, "pre_request.1.conditions.0.condition_values.0", "PUT"),
+					// Post-RESPONSE phase - 2 rules
+					resource.TestCheckResourceAttr(resourceName, "post_response.#", "2"),
+					resource.TestCheckResourceAttr(resourceName, "post_response.0.proxy_rule_name", fmt.Sprintf("%s-postresponse-1", rName)),
+					resource.TestCheckResourceAttr(resourceName, "post_response.0.action", "ALERT"),
+					resource.TestCheckResourceAttr(resourceName, "post_response.0.conditions.0.condition_values.0", "500"),
+					resource.TestCheckResourceAttr(resourceName, "post_response.1.proxy_rule_name", fmt.Sprintf("%s-postresponse-2", rName)),
+					resource.TestCheckResourceAttr(resourceName, "post_response.1.action", "ALERT"),
+					resource.TestCheckResourceAttr(resourceName, "post_response.1.conditions.0.condition_values.0", "404"),
+				),
+			},
+			{
+
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
 			},
 		},
 	})
@@ -344,7 +415,7 @@ resource "aws_networkfirewall_proxy_rules" "test" {
     conditions {
       condition_key      = "request:DestinationDomain"
       condition_operator = "StringEquals"
-      condition_values   = ["amazonaws.com"]
+      condition_values   = ["example.com", "test.com"]
     }
   }
 
@@ -367,6 +438,129 @@ resource "aws_networkfirewall_proxy_rules" "test" {
       condition_key      = "response:Http:StatusCode"
       condition_operator = "NumericGreaterThanEquals"
       condition_values   = ["500"]
+    }
+  }
+}
+`, rName)
+}
+
+func testAccProxyRulesConfig_add(rName string) string {
+	return fmt.Sprintf(`
+resource "aws_networkfirewall_proxy_rule_group" "test" {
+  name = %[1]q
+}
+
+resource "aws_networkfirewall_proxy_rules" "test" {
+  proxy_rule_group_arn = aws_networkfirewall_proxy_rule_group.test.arn
+
+  pre_dns {
+    proxy_rule_name = "%[1]s-predns"
+    action          = "ALLOW"
+
+    conditions {
+      condition_key      = "request:DestinationDomain"
+      condition_operator = "StringEquals"
+      condition_values   = ["amazonaws.com"]
+    }
+  }
+
+  pre_request {
+    proxy_rule_name = "%[1]s-prerequest-new"
+    action          = "DENY"
+
+    conditions {
+      condition_key      = "request:Http:Method"
+      condition_operator = "StringEquals"
+      condition_values   = ["POST"]
+    }
+  }
+
+  post_response {
+    proxy_rule_name = "%[1]s-postresponse-new"
+    action          = "ALERT"
+
+    conditions {
+      condition_key      = "response:Http:StatusCode"
+      condition_operator = "NumericGreaterThanEquals"
+      condition_values   = ["400"]
+    }
+  }
+}
+`, rName)
+}
+
+func testAccProxyRulesConfig_multiplePerPhase(rName string) string {
+	return fmt.Sprintf(`
+resource "aws_networkfirewall_proxy_rule_group" "test" {
+  name = %[1]q
+}
+
+resource "aws_networkfirewall_proxy_rules" "test" {
+  proxy_rule_group_arn = aws_networkfirewall_proxy_rule_group.test.arn
+
+  pre_dns {
+    proxy_rule_name = "%[1]s-predns-1"
+    action          = "ALLOW"
+
+    conditions {
+      condition_key      = "request:DestinationDomain"
+      condition_operator = "StringEquals"
+      condition_values   = ["amazonaws.com"]
+    }
+  }
+
+  pre_dns {
+    proxy_rule_name = "%[1]s-predns-2"
+    action          = "DENY"
+
+    conditions {
+      condition_key      = "request:DestinationDomain"
+      condition_operator = "StringEquals"
+      condition_values   = ["malicious.com"]
+    }
+  }
+
+  pre_request {
+    proxy_rule_name = "%[1]s-prerequest-1"
+    action          = "DENY"
+
+    conditions {
+      condition_key      = "request:Http:Method"
+      condition_operator = "StringEquals"
+      condition_values   = ["DELETE"]
+    }
+  }
+
+  pre_request {
+    proxy_rule_name = "%[1]s-prerequest-2"
+    action          = "DENY"
+
+    conditions {
+      condition_key      = "request:Http:Method"
+      condition_operator = "StringEquals"
+      condition_values   = ["PUT"]
+    }
+  }
+
+  post_response {
+    proxy_rule_name = "%[1]s-postresponse-1"
+    action          = "ALERT"
+
+    conditions {
+      condition_key      = "response:Http:StatusCode"
+      condition_operator = "NumericGreaterThanEquals"
+      condition_values   = ["500"]
+    }
+  }
+
+  post_response {
+    proxy_rule_name = "%[1]s-postresponse-2"
+    action          = "ALERT"
+
+    conditions {
+      condition_key      = "response:Http:StatusCode"
+      condition_operator = "NumericEquals"
+      condition_values   = ["404"]
     }
   }
 }

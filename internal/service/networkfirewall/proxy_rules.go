@@ -6,16 +6,12 @@ package networkfirewall
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/networkfirewall"
 	awstypes "github.com/aws/aws-sdk-go-v2/service/networkfirewall/types"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -33,6 +29,8 @@ import (
 )
 
 // @FrameworkResource("aws_networkfirewall_proxy_rules", name="Proxy Rules")
+// @ArnIdentity("proxy_rule_group_arn",identityDuplicateAttributes="id")
+// @ArnFormat("proxy-rule-group/{name}")
 func newResourceProxyRules(_ context.Context) (resource.ResourceWithConfigure, error) {
 	r := &resourceProxyRules{}
 
@@ -45,6 +43,7 @@ const (
 
 type resourceProxyRules struct {
 	framework.ResourceWithModel[resourceProxyRulesModel]
+	framework.WithImportByIdentity
 }
 
 func (r *resourceProxyRules) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -54,20 +53,6 @@ func (r *resourceProxyRules) Schema(ctx context.Context, req resource.SchemaRequ
 			"proxy_rule_group_arn": schema.StringAttribute{
 				CustomType: fwtypes.ARNType,
 				Optional:   true,
-				Computed:   true,
-				Validators: []validator.String{
-					stringvalidator.AtLeastOneOf(path.MatchRoot("proxy_rule_group_name")),
-				},
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"proxy_rule_group_name": schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-				Validators: []validator.String{
-					stringvalidator.AtLeastOneOf(path.MatchRoot("proxy_rule_group_arn")),
-				},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -83,9 +68,6 @@ func (r *resourceProxyRules) Schema(ctx context.Context, req resource.SchemaRequ
 							Required:   true,
 						},
 						names.AttrDescription: schema.StringAttribute{
-							Optional: true,
-						},
-						"insert_position": schema.Int64Attribute{
 							Optional: true,
 						},
 						"proxy_rule_name": schema.StringAttribute{
@@ -128,9 +110,6 @@ func (r *resourceProxyRules) Schema(ctx context.Context, req resource.SchemaRequ
 						names.AttrDescription: schema.StringAttribute{
 							Optional: true,
 						},
-						"insert_position": schema.Int64Attribute{
-							Optional: true,
-						},
 						"proxy_rule_name": schema.StringAttribute{
 							Required: true,
 						},
@@ -169,9 +148,6 @@ func (r *resourceProxyRules) Schema(ctx context.Context, req resource.SchemaRequ
 							Required:   true,
 						},
 						names.AttrDescription: schema.StringAttribute{
-							Optional: true,
-						},
-						"insert_position": schema.Int64Attribute{
 							Optional: true,
 						},
 						"proxy_rule_name": schema.StringAttribute{
@@ -216,8 +192,9 @@ func (r *resourceProxyRules) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
-	var input networkfirewall.CreateProxyRulesInput
-	input.ProxyRuleGroupArn = plan.ProxyRuleGroupArn.ValueStringPointer()
+	input := networkfirewall.CreateProxyRulesInput{
+		ProxyRuleGroupArn: plan.ProxyRuleGroupArn.ValueStringPointer(),
+	}
 
 	// Create the Rules structure organized by phase
 	var rulesByPhase awstypes.CreateProxyRulesByRequestPhase
@@ -230,12 +207,15 @@ func (r *resourceProxyRules) Create(ctx context.Context, req resource.CreateRequ
 			return
 		}
 
-		for _, ruleModel := range postRules {
+		for i, ruleModel := range postRules {
 			var rule awstypes.CreateProxyRule
 			smerr.AddEnrich(ctx, &resp.Diagnostics, flex.Expand(ctx, ruleModel, &rule))
 			if resp.Diagnostics.HasError() {
 				return
 			}
+			// Set InsertPosition based on index
+			insertPos := int32(i)
+			rule.InsertPosition = &insertPos
 			rulesByPhase.PostRESPONSE = append(rulesByPhase.PostRESPONSE, rule)
 		}
 	}
@@ -248,12 +228,15 @@ func (r *resourceProxyRules) Create(ctx context.Context, req resource.CreateRequ
 			return
 		}
 
-		for _, ruleModel := range preDNSRules {
+		for i, ruleModel := range preDNSRules {
 			var rule awstypes.CreateProxyRule
 			smerr.AddEnrich(ctx, &resp.Diagnostics, flex.Expand(ctx, ruleModel, &rule))
 			if resp.Diagnostics.HasError() {
 				return
 			}
+			// Set InsertPosition based on index
+			insertPos := int32(i)
+			rule.InsertPosition = &insertPos
 			rulesByPhase.PreDNS = append(rulesByPhase.PreDNS, rule)
 		}
 	}
@@ -266,12 +249,15 @@ func (r *resourceProxyRules) Create(ctx context.Context, req resource.CreateRequ
 			return
 		}
 
-		for _, ruleModel := range preRequestRules {
+		for i, ruleModel := range preRequestRules {
 			var rule awstypes.CreateProxyRule
 			smerr.AddEnrich(ctx, &resp.Diagnostics, flex.Expand(ctx, ruleModel, &rule))
 			if resp.Diagnostics.HasError() {
 				return
 			}
+			// Set InsertPosition based on index
+			insertPos := int32(i)
+			rule.InsertPosition = &insertPos
 			rulesByPhase.PreREQUEST = append(rulesByPhase.PreREQUEST, rule)
 		}
 	}
@@ -289,7 +275,7 @@ func (r *resourceProxyRules) Create(ctx context.Context, req resource.CreateRequ
 	}
 
 	// Set ID to the proxy rule group ARN
-	plan.ID = plan.ProxyRuleGroupArn.StringValue
+	plan.setID()
 
 	// Read back to get full state
 	readOut, err := findProxyRulesByGroupARN(ctx, conn, plan.ProxyRuleGroupArn.ValueString())
@@ -315,14 +301,14 @@ func (r *resourceProxyRules) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 
-	out, err := findProxyRulesByGroupARN(ctx, conn, state.ID.ValueString())
+	out, err := findProxyRulesByGroupARN(ctx, conn, state.ProxyRuleGroupArn.ValueString())
 	if tfretry.NotFound(err) {
 		resp.Diagnostics.Append(fwdiag.NewResourceNotFoundWarningDiagnostic(err))
 		resp.State.RemoveResource(ctx)
 		return
 	}
 	if err != nil {
-		smerr.AddError(ctx, &resp.Diagnostics, err, smerr.ID, state.ID.String())
+		smerr.AddError(ctx, &resp.Diagnostics, err, smerr.ID, state.ProxyRuleGroupArn.String())
 		return
 	}
 
@@ -344,7 +330,7 @@ func (r *resourceProxyRules) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
-	// Get current state to obtain update token
+	// Get current state to obtain update token and existing rules from AWS
 	currentRules, err := findProxyRulesByGroupARN(ctx, conn, state.ProxyRuleGroupArn.ValueString())
 	if err != nil && !tfretry.NotFound(err) {
 		smerr.AddError(ctx, &resp.Diagnostics, err, smerr.ID, state.ID.String())
@@ -357,26 +343,25 @@ func (r *resourceProxyRules) Update(ctx context.Context, req resource.UpdateRequ
 	stateRulesByName := make(map[string]proxyRuleModel)
 	planRulesByName := make(map[string]proxyRuleModel)
 
-	// Extract state rules
-	if !state.PostRESPONSE.IsNull() && !state.PostRESPONSE.IsUnknown() {
-		var rules []proxyRuleModel
-		smerr.AddEnrich(ctx, &resp.Diagnostics, state.PostRESPONSE.ElementsAs(ctx, &rules, false))
-		for _, rule := range rules {
-			stateRulesByName[rule.ProxyRuleName.ValueString()] = rule
+	// Extract existing rules from AWS (currentRules) instead of Terraform state
+	// This ensures we correctly identify which rules already exist in AWS
+	if currentRules != nil && currentRules.ProxyRuleGroup != nil && currentRules.ProxyRuleGroup.Rules != nil {
+		rules := currentRules.ProxyRuleGroup.Rules
+
+		for _, rule := range rules.PostRESPONSE {
+			var ruleModel proxyRuleModel
+			smerr.AddEnrich(ctx, &resp.Diagnostics, flex.Flatten(ctx, &rule, &ruleModel))
+			stateRulesByName[ruleModel.ProxyRuleName.ValueString()] = ruleModel
 		}
-	}
-	if !state.PreDNS.IsNull() && !state.PreDNS.IsUnknown() {
-		var rules []proxyRuleModel
-		smerr.AddEnrich(ctx, &resp.Diagnostics, state.PreDNS.ElementsAs(ctx, &rules, false))
-		for _, rule := range rules {
-			stateRulesByName[rule.ProxyRuleName.ValueString()] = rule
+		for _, rule := range rules.PreDNS {
+			var ruleModel proxyRuleModel
+			smerr.AddEnrich(ctx, &resp.Diagnostics, flex.Flatten(ctx, &rule, &ruleModel))
+			stateRulesByName[ruleModel.ProxyRuleName.ValueString()] = ruleModel
 		}
-	}
-	if !state.PreREQUEST.IsNull() && !state.PreREQUEST.IsUnknown() {
-		var rules []proxyRuleModel
-		smerr.AddEnrich(ctx, &resp.Diagnostics, state.PreREQUEST.ElementsAs(ctx, &rules, false))
-		for _, rule := range rules {
-			stateRulesByName[rule.ProxyRuleName.ValueString()] = rule
+		for _, rule := range rules.PreREQUEST {
+			var ruleModel proxyRuleModel
+			smerr.AddEnrich(ctx, &resp.Diagnostics, flex.Flatten(ctx, &rule, &ruleModel))
+			stateRulesByName[ruleModel.ProxyRuleName.ValueString()] = ruleModel
 		}
 	}
 
@@ -443,7 +428,7 @@ func (r *resourceProxyRules) Update(ctx context.Context, req resource.UpdateRequ
 			return
 		}
 
-		// Refresh update token after deletion
+		// Refresh update token after deletion for subsequent UpdateProxyRule calls
 		currentRules, err = findProxyRulesByGroupARN(ctx, conn, plan.ProxyRuleGroupArn.ValueString())
 		if err != nil {
 			smerr.AddError(ctx, &resp.Diagnostics, err, smerr.ID, plan.ID.String())
@@ -454,6 +439,14 @@ func (r *resourceProxyRules) Update(ctx context.Context, req resource.UpdateRequ
 
 	// Update modified rules
 	for _, ruleModel := range rulesToUpdate {
+		// Refresh the update token before each update to ensure we have the latest
+		currentRules, err = findProxyRulesByGroupARN(ctx, conn, plan.ProxyRuleGroupArn.ValueString())
+		if err != nil {
+			smerr.AddError(ctx, &resp.Diagnostics, err, smerr.ID, plan.ID.String())
+			return
+		}
+		updateToken = currentRules.UpdateToken
+
 		updateInput := networkfirewall.UpdateProxyRuleInput{
 			ProxyRuleGroupArn: plan.ProxyRuleGroupArn.ValueStringPointer(),
 			ProxyRuleName:     ruleModel.ProxyRuleName.ValueStringPointer(),
@@ -513,50 +506,80 @@ func (r *resourceProxyRules) Update(ctx context.Context, req resource.UpdateRequ
 	if len(rulesToCreate) > 0 {
 		var rulesByPhase awstypes.CreateProxyRulesByRequestPhase
 
-		// Organize rules to create by phase
-		for _, ruleModel := range rulesToCreate {
-			var createRule awstypes.CreateProxyRule
-			smerr.AddEnrich(ctx, &resp.Diagnostics, flex.Expand(ctx, ruleModel, &createRule))
-			if resp.Diagnostics.HasError() {
-				return
+		// Process each phase separately with proper InsertPosition
+		// Process PostRESPONSE rules
+		if !plan.PostRESPONSE.IsNull() {
+			var postRules []proxyRuleModel
+			smerr.AddEnrich(ctx, &resp.Diagnostics, plan.PostRESPONSE.ElementsAs(ctx, &postRules, false))
+			for i, r := range postRules {
+				if _, exists := planRulesByName[r.ProxyRuleName.ValueString()]; exists {
+					// Check if this rule is in the create list
+					for _, createRule := range rulesToCreate {
+						if createRule.ProxyRuleName.ValueString() == r.ProxyRuleName.ValueString() {
+							var rule awstypes.CreateProxyRule
+							smerr.AddEnrich(ctx, &resp.Diagnostics, flex.Expand(ctx, createRule, &rule))
+							if resp.Diagnostics.HasError() {
+								return
+							}
+							// Set InsertPosition based on index
+							insertPos := int32(i)
+							rule.InsertPosition = &insertPos
+							rulesByPhase.PostRESPONSE = append(rulesByPhase.PostRESPONSE, rule)
+							break
+						}
+					}
+				}
 			}
+		}
 
-			// Determine which phase this rule belongs to
-			ruleName := ruleModel.ProxyRuleName.ValueString()
-			if _, exists := planRulesByName[ruleName]; exists {
-				// Check plan to determine phase
-				if !plan.PostRESPONSE.IsNull() {
-					var postRules []proxyRuleModel
-					smerr.AddEnrich(ctx, &resp.Diagnostics, plan.PostRESPONSE.ElementsAs(ctx, &postRules, false))
-					for _, r := range postRules {
-						if r.ProxyRuleName.ValueString() == ruleName {
-							rulesByPhase.PostRESPONSE = append(rulesByPhase.PostRESPONSE, createRule)
-							goto nextRule
-						}
-					}
-				}
-				if !plan.PreDNS.IsNull() {
-					var preDNSRules []proxyRuleModel
-					smerr.AddEnrich(ctx, &resp.Diagnostics, plan.PreDNS.ElementsAs(ctx, &preDNSRules, false))
-					for _, r := range preDNSRules {
-						if r.ProxyRuleName.ValueString() == ruleName {
-							rulesByPhase.PreDNS = append(rulesByPhase.PreDNS, createRule)
-							goto nextRule
-						}
-					}
-				}
-				if !plan.PreREQUEST.IsNull() {
-					var preRequestRules []proxyRuleModel
-					smerr.AddEnrich(ctx, &resp.Diagnostics, plan.PreREQUEST.ElementsAs(ctx, &preRequestRules, false))
-					for _, r := range preRequestRules {
-						if r.ProxyRuleName.ValueString() == ruleName {
-							rulesByPhase.PreREQUEST = append(rulesByPhase.PreREQUEST, createRule)
-							goto nextRule
+		// Process PreDNS rules
+		if !plan.PreDNS.IsNull() {
+			var preDNSRules []proxyRuleModel
+			smerr.AddEnrich(ctx, &resp.Diagnostics, plan.PreDNS.ElementsAs(ctx, &preDNSRules, false))
+			for i, r := range preDNSRules {
+				if _, exists := planRulesByName[r.ProxyRuleName.ValueString()]; exists {
+					// Check if this rule is in the create list
+					for _, createRule := range rulesToCreate {
+						if createRule.ProxyRuleName.ValueString() == r.ProxyRuleName.ValueString() {
+							var rule awstypes.CreateProxyRule
+							smerr.AddEnrich(ctx, &resp.Diagnostics, flex.Expand(ctx, createRule, &rule))
+							if resp.Diagnostics.HasError() {
+								return
+							}
+							// Set InsertPosition based on index
+							insertPos := int32(i)
+							rule.InsertPosition = &insertPos
+							rulesByPhase.PreDNS = append(rulesByPhase.PreDNS, rule)
+							break
 						}
 					}
 				}
 			}
-		nextRule:
+		}
+
+		// Process PreREQUEST rules
+		if !plan.PreREQUEST.IsNull() {
+			var preRequestRules []proxyRuleModel
+			smerr.AddEnrich(ctx, &resp.Diagnostics, plan.PreREQUEST.ElementsAs(ctx, &preRequestRules, false))
+			for i, r := range preRequestRules {
+				if _, exists := planRulesByName[r.ProxyRuleName.ValueString()]; exists {
+					// Check if this rule is in the create list
+					for _, createRule := range rulesToCreate {
+						if createRule.ProxyRuleName.ValueString() == r.ProxyRuleName.ValueString() {
+							var rule awstypes.CreateProxyRule
+							smerr.AddEnrich(ctx, &resp.Diagnostics, flex.Expand(ctx, createRule, &rule))
+							if resp.Diagnostics.HasError() {
+								return
+							}
+							// Set InsertPosition based on index
+							insertPos := int32(i)
+							rule.InsertPosition = &insertPos
+							rulesByPhase.PreREQUEST = append(rulesByPhase.PreREQUEST, rule)
+							break
+						}
+					}
+				}
+			}
 		}
 
 		createInput := networkfirewall.CreateProxyRulesInput{
@@ -598,10 +621,7 @@ func ruleModelsEqual(ctx context.Context, a, b proxyRuleModel) bool {
 		return false
 	}
 
-	// Compare insert position
-	if a.InsertPosition.ValueInt64() != b.InsertPosition.ValueInt64() {
-		return false
-	}
+	// Note: InsertPosition is not compared as it's auto-populated and not stored in state
 
 	// Compare conditions count
 	if a.Conditions.IsNull() != b.Conditions.IsNull() {
@@ -701,147 +721,6 @@ func (r *resourceProxyRules) Delete(ctx context.Context, req resource.DeleteRequ
 	}
 }
 
-func (r *resourceProxyRules) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	conn := r.Meta().NetworkFirewallClient(ctx)
-
-	// Parse the composite ID (ProxyRuleGroupArn,RuleName1,RuleName2,...)
-	// Minimum 2 parts: ARN and at least one rule name
-	parts := strings.Split(req.ID, ",")
-
-	if len(parts) < 2 {
-		resp.Diagnostics.AddError(
-			"Invalid Import ID",
-			fmt.Sprintf("Expected import ID format: 'proxy_rule_group_arn,rule_name1[,rule_name2,...]'. Got: %s", req.ID),
-		)
-		return
-	}
-
-	proxyRuleGroupArn := parts[0]
-	ruleNames := parts[1:]
-
-	// Fetch all rules for the group
-	out, err := findProxyRulesByGroupARN(ctx, conn, proxyRuleGroupArn)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Import Failed",
-			fmt.Sprintf("Could not find proxy rule group %s: %s", proxyRuleGroupArn, err.Error()),
-		)
-		return
-	}
-
-	if out.ProxyRuleGroup == nil || out.ProxyRuleGroup.Rules == nil {
-		resp.Diagnostics.AddError(
-			"Import Failed",
-			fmt.Sprintf("Proxy rule group %s has no rules", proxyRuleGroupArn),
-		)
-		return
-	}
-
-	rules := out.ProxyRuleGroup.Rules
-
-	// Create a map to track which rule names we're looking for
-	ruleNamesToFind := make(map[string]bool)
-	for _, name := range ruleNames {
-		ruleNamesToFind[name] = true
-	}
-
-	// Collect rules by phase
-	var postResponseRules []proxyRuleModel
-	var preDNSRules []proxyRuleModel
-	var preRequestRules []proxyRuleModel
-	var diags diag.Diagnostics
-
-	// Search for rules in PostRESPONSE phase
-	for _, rule := range rules.PostRESPONSE {
-		if rule.ProxyRuleName != nil && ruleNamesToFind[*rule.ProxyRuleName] {
-			var ruleModel proxyRuleModel
-			diags.Append(flex.Flatten(ctx, &rule, &ruleModel)...)
-			if diags.HasError() {
-				resp.Diagnostics.Append(diags...)
-				return
-			}
-			postResponseRules = append(postResponseRules, ruleModel)
-			delete(ruleNamesToFind, *rule.ProxyRuleName) // Mark as found
-		}
-	}
-
-	// Search for rules in PreDNS phase
-	for _, rule := range rules.PreDNS {
-		if rule.ProxyRuleName != nil && ruleNamesToFind[*rule.ProxyRuleName] {
-			var ruleModel proxyRuleModel
-			diags.Append(flex.Flatten(ctx, &rule, &ruleModel)...)
-			if diags.HasError() {
-				resp.Diagnostics.Append(diags...)
-				return
-			}
-			preDNSRules = append(preDNSRules, ruleModel)
-			delete(ruleNamesToFind, *rule.ProxyRuleName) // Mark as found
-		}
-	}
-
-	// Search for rules in PreREQUEST phase
-	for _, rule := range rules.PreREQUEST {
-		if rule.ProxyRuleName != nil && ruleNamesToFind[*rule.ProxyRuleName] {
-			var ruleModel proxyRuleModel
-			diags.Append(flex.Flatten(ctx, &rule, &ruleModel)...)
-			if diags.HasError() {
-				resp.Diagnostics.Append(diags...)
-				return
-			}
-			preRequestRules = append(preRequestRules, ruleModel)
-			delete(ruleNamesToFind, *rule.ProxyRuleName) // Mark as found
-		}
-	}
-
-	// Check if any rules were not found
-	if len(ruleNamesToFind) > 0 {
-		var notFoundRules []string
-		for ruleName := range ruleNamesToFind {
-			notFoundRules = append(notFoundRules, ruleName)
-		}
-		resp.Diagnostics.AddError(
-			"Import Failed",
-			fmt.Sprintf("The following rules were not found in proxy rule group %s: %v", proxyRuleGroupArn, notFoundRules),
-		)
-		return
-	}
-
-	// Create model with the found rules
-	var model resourceProxyRulesModel
-	model.ID = types.StringValue(proxyRuleGroupArn)
-	model.ProxyRuleGroupArn = fwtypes.ARNValue(proxyRuleGroupArn)
-
-	if out.ProxyRuleGroup.ProxyRuleGroupName != nil {
-		model.ProxyRuleGroupName = flex.StringToFramework(ctx, out.ProxyRuleGroup.ProxyRuleGroupName)
-	}
-
-	// Set rules for each phase
-	if len(postResponseRules) > 0 {
-		postList, d := fwtypes.NewListNestedObjectValueOfValueSlice(ctx, postResponseRules)
-		diags.Append(d...)
-		model.PostRESPONSE = postList
-	}
-
-	if len(preDNSRules) > 0 {
-		preDNSList, d := fwtypes.NewListNestedObjectValueOfValueSlice(ctx, preDNSRules)
-		diags.Append(d...)
-		model.PreDNS = preDNSList
-	}
-
-	if len(preRequestRules) > 0 {
-		preRequestList, d := fwtypes.NewListNestedObjectValueOfValueSlice(ctx, preRequestRules)
-		diags.Append(d...)
-		model.PreREQUEST = preRequestList
-	}
-
-	if diags.HasError() {
-		resp.Diagnostics.Append(diags...)
-		return
-	}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
-}
-
 func findProxyRulesByGroupARN(ctx context.Context, conn *networkfirewall.Client, groupARN string) (*networkfirewall.DescribeProxyRuleGroupOutput, error) {
 	input := networkfirewall.DescribeProxyRuleGroupInput{
 		ProxyRuleGroupArn: aws.String(groupARN),
@@ -893,6 +772,8 @@ func flattenProxyRules(ctx context.Context, out *networkfirewall.DescribeProxyRu
 			return diags
 		}
 		model.PostRESPONSE = postList
+	} else {
+		model.PostRESPONSE = fwtypes.NewListNestedObjectValueOfNull[proxyRuleModel](ctx)
 	}
 
 	// Process PreDNS rules
@@ -912,6 +793,8 @@ func flattenProxyRules(ctx context.Context, out *networkfirewall.DescribeProxyRu
 			return diags
 		}
 		model.PreDNS = preDNSList
+	} else {
+		model.PreDNS = fwtypes.NewListNestedObjectValueOfNull[proxyRuleModel](ctx)
 	}
 
 	// Process PreREQUEST rules
@@ -931,10 +814,8 @@ func flattenProxyRules(ctx context.Context, out *networkfirewall.DescribeProxyRu
 			return diags
 		}
 		model.PreREQUEST = preRequestList
-	}
-
-	if out.ProxyRuleGroup.ProxyRuleGroupName != nil {
-		model.ProxyRuleGroupName = flex.StringToFramework(ctx, out.ProxyRuleGroup.ProxyRuleGroupName)
+	} else {
+		model.PreREQUEST = fwtypes.NewListNestedObjectValueOfNull[proxyRuleModel](ctx)
 	}
 
 	if out.ProxyRuleGroup.ProxyRuleGroupArn != nil {
@@ -946,24 +827,26 @@ func flattenProxyRules(ctx context.Context, out *networkfirewall.DescribeProxyRu
 
 type resourceProxyRulesModel struct {
 	framework.WithRegionModel
-	ID                 types.String                                    `tfsdk:"id"`
-	PostRESPONSE       fwtypes.ListNestedObjectValueOf[proxyRuleModel] `tfsdk:"post_response"`
-	PreDNS             fwtypes.ListNestedObjectValueOf[proxyRuleModel] `tfsdk:"pre_dns"`
-	PreREQUEST         fwtypes.ListNestedObjectValueOf[proxyRuleModel] `tfsdk:"pre_request"`
-	ProxyRuleGroupArn  fwtypes.ARN                                     `tfsdk:"proxy_rule_group_arn"`
-	ProxyRuleGroupName types.String                                    `tfsdk:"proxy_rule_group_name"`
+	ID                types.String                                    `tfsdk:"id"`
+	PostRESPONSE      fwtypes.ListNestedObjectValueOf[proxyRuleModel] `tfsdk:"post_response"`
+	PreDNS            fwtypes.ListNestedObjectValueOf[proxyRuleModel] `tfsdk:"pre_dns"`
+	PreREQUEST        fwtypes.ListNestedObjectValueOf[proxyRuleModel] `tfsdk:"pre_request"`
+	ProxyRuleGroupArn fwtypes.ARN                                     `tfsdk:"proxy_rule_group_arn"`
 }
 
 type proxyRuleModel struct {
-	Action         fwtypes.StringEnum[awstypes.ProxyRulePhaseAction] `tfsdk:"action"`
-	Conditions     fwtypes.ListNestedObjectValueOf[conditionModel]   `tfsdk:"conditions"`
-	Description    types.String                                      `tfsdk:"description"`
-	InsertPosition types.Int64                                       `tfsdk:"insert_position"`
-	ProxyRuleName  types.String                                      `tfsdk:"proxy_rule_name"`
+	Action        fwtypes.StringEnum[awstypes.ProxyRulePhaseAction] `tfsdk:"action"`
+	Conditions    fwtypes.ListNestedObjectValueOf[conditionModel]   `tfsdk:"conditions"`
+	Description   types.String                                      `tfsdk:"description"`
+	ProxyRuleName types.String                                      `tfsdk:"proxy_rule_name"`
 }
 
 type conditionModel struct {
 	ConditionKey      types.String                      `tfsdk:"condition_key"`
 	ConditionOperator types.String                      `tfsdk:"condition_operator"`
 	ConditionValues   fwtypes.ListValueOf[types.String] `tfsdk:"condition_values"`
+}
+
+func (data *resourceProxyRulesModel) setID() {
+	data.ID = data.ProxyRuleGroupArn.StringValue
 }
