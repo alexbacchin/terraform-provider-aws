@@ -358,16 +358,16 @@ data "aws_partition" "current" {}
 
 data "aws_region" "current" {}
 
-# Create a subordinate CA for TLS interception
+# Create a root CA for TLS interception
 resource "aws_acmpca_certificate_authority" "test" {
-  type = "SUBORDINATE"
+  type = "ROOT"
 
   certificate_authority_configuration {
     key_algorithm     = "RSA_2048"
     signing_algorithm = "SHA256WITHRSA"
 
     subject {
-      common_name = "%[1]s.example.com"
+      common_name = "%[1]s Terraform Test CA"
     }
   }
 
@@ -378,42 +378,76 @@ resource "aws_acmpca_certificate_authority" "test" {
   }
 }
 
-# Create the CA certificate
-resource "aws_acmpca_certificate" "test" {
-  certificate_authority_arn   = aws_acmpca_certificate_authority.test.arn
-  certificate_signing_request = aws_acmpca_certificate_authority.test.certificate_signing_request
-  signing_algorithm           = "SHA256WITHRSA"
+# Grant Network Firewall proxy permission to use the PCA
+resource "aws_acmpca_policy" "test" {
+  resource_arn = aws_acmpca_certificate_authority.test.arn
 
-  template_arn = "arn:${data.aws_partition.current.partition}:acm-pca:::template/SubordinateCACertificate_PathLen0/V1"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "NetworkFirewallProxyReadAccess"
+        Effect = "Allow"
+        Principal = {
+          Service = "proxy.network-firewall.amazonaws.com"
+        }
+        Action = [
+          "acm-pca:GetCertificate",
+          "acm-pca:DescribeCertificateAuthority",
+          "acm-pca:GetCertificateAuthorityCertificate",
+          "acm-pca:ListTags",
+          "acm-pca:ListPermissions",
+        ]
+        Resource = aws_acmpca_certificate_authority.test.arn
+        Condition = {
+          ArnEquals = {
+            "aws:SourceArn" = aws_networkfirewall_proxy.test.arn
+          }
+        }
+      },
+      {
+        Sid    = "NetworkFirewallProxyIssueCertificate"
+        Effect = "Allow"
+        Principal = {
+          Service = "proxy.network-firewall.amazonaws.com"
+        }
+        Action = [
+          "acm-pca:IssueCertificate",
+        ]
+        Resource = aws_acmpca_certificate_authority.test.arn
+        Condition = {
+          StringEquals = {
+            "acm-pca:TemplateArn" = "arn:${data.aws_partition.current.partition}:acm-pca:::template/SubordinateCACertificate_PathLen0/V1"
+          }
+          ArnEquals = {
+            "aws:SourceArn" = aws_networkfirewall_proxy.test.arn
+          }
+        }
+      }
+    ]
+  })
+}
 
-  validity {
-    type  = "YEARS"
-    value = 1
+# Create RAM resource share for the PCA
+resource "aws_ram_resource_share" "test" {
+  name                      = %[1]q
+  allow_external_principals = false
+
+  tags = {
+    Name = %[1]q
   }
 }
 
-# Import the signed certificate back into the CA
-resource "aws_acmpca_certificate_authority_certificate" "test" {
-  certificate_authority_arn = aws_acmpca_certificate_authority.test.arn
-  certificate               = aws_acmpca_certificate.test.certificate
-  certificate_chain         = aws_acmpca_certificate.test.certificate_chain
+# Associate the PCA with the RAM share
+resource "aws_ram_resource_association" "test" {
+  resource_arn       = aws_acmpca_certificate_authority.test.arn
+  resource_share_arn = aws_ram_resource_share.test.arn
 }
 
-# Grant Network Firewall proxy permission to use the PCA
-resource "aws_acmpca_permission" "test" {
-  certificate_authority_arn = aws_acmpca_certificate_authority.test.arn
-  principal                 = "proxy.network-firewall.amazonaws.com"
-
-  actions = [
-    "GetCertificate",
-    "DescribeCertificateAuthority",
-    "GetCertificateAuthorityCertificate",
-    "ListTags",
-    "ListPermissions",
-    "IssueCertificate",
-  ]
-
-  source_arn = aws_networkfirewall_proxy.test.arn
+# Share the PCA with Network Firewall proxy service
+resource "aws_ram_principal_association" "test" {
+  principal          = "proxy.network-firewall.amazonaws.com"
+  resource_share_arn = aws_ram_resource_share.test.arn
 }
 
 resource "aws_networkfirewall_proxy" "test" {
@@ -436,7 +470,11 @@ resource "aws_networkfirewall_proxy" "test" {
     type = "HTTPS"
   }
 
-  depends_on = [aws_acmpca_certificate_authority_certificate.test]
+  depends_on = [
+    aws_acmpca_certificate_authority.test,
+    aws_ram_resource_association.test,
+    aws_ram_principal_association.test,
+  ]
 }
 `, rName))
 }
