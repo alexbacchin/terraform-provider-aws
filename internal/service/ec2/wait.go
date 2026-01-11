@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2014, 2025
+// Copyright IBM Corp. 2014, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package ec2
@@ -1514,6 +1514,29 @@ func waitNATGatewayDeleted(ctx context.Context, conn *ec2.Client, id string, tim
 			tfresource.SetLastError(err, fmt.Errorf("%s: %s", aws.ToString(output.FailureCode), aws.ToString(output.FailureMessage)))
 		}
 
+		return output, err
+	}
+
+	return nil, err
+}
+
+func waitNATGatewayAttachedAppliancesDetached(ctx context.Context, conn *ec2.Client, id string, timeout time.Duration) (*awstypes.NatGateway, error) {
+	stateConf := &sdkretry.StateChangeConf{
+		Pending: enum.Slice(
+			awstypes.NatGatewayApplianceStateAttaching,
+			awstypes.NatGatewayApplianceStateAttached,
+			awstypes.NatGatewayApplianceStateDetaching,
+		),
+		Target:     []string{},
+		Refresh:    statusNATGatewayAttachedAppliances(ctx, conn, id),
+		Timeout:    timeout,
+		Delay:      10 * time.Second,
+		MinTimeout: 10 * time.Second,
+	}
+
+	outputRaw, err := stateConf.WaitForStateContext(ctx)
+
+	if output, ok := outputRaw.(*awstypes.NatGateway); ok {
 		return output, err
 	}
 
