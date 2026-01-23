@@ -3,24 +3,14 @@ subcategory: "Network Firewall"
 layout: "aws"
 page_title: "AWS: aws_networkfirewall_proxy_rule_group"
 description: |-
-  Manages an AWS Network Firewall Proxy Rule Group.
+  Manages an AWS Network Firewall Proxy Rule Group resource.
 ---
-<!---
-Documentation guidelines:
-- Begin resource descriptions with "Manages..."
-- Use simple language and avoid jargon
-- Focus on brevity and clarity
-- Use present tense and active voice
-- Don't begin argument/attribute descriptions with "An", "The", "Defines", "Indicates", or "Specifies"
-- Boolean arguments should begin with "Whether to"
-- Use "example" instead of "test" in examples
---->
 
 # Resource: aws_networkfirewall_proxy_rule_group
 
-Manages an AWS Network Firewall Proxy Rule Group. A proxy rule group is a container for proxy rules that can be referenced by a proxy configuration.
+Manages an AWS Network Firewall Proxy Rule Group resource. A proxy rule group is a container for proxy rules that can be referenced by a proxy configuration.
 
-~> **NOTE:** This resource creates an empty proxy rule group. Use the [`aws_networkfirewall_proxy_rules`](networkfirewall_proxy_rules.html) resource to add rules to the group.
+~> **NOTE:** This resource creates an empty proxy rule group. Use the [`aws_networkfirewall_proxy_rules_exclusive`](networkfirewall_proxy_rules_exclusive.html) resource to add rules to the group.
 
 ## Example Usage
 

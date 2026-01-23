@@ -5,19 +5,19 @@ package networkfirewall
 
 // Exports for use in tests only.
 var (
-	ResourceFirewall                                 = resourceFirewall
-	ResourceFirewallPolicy                           = resourceFirewallPolicy
-	ResourceFirewallTransitGatewayAttachmentAccepter = newFirewallTransitGatewayAttachmentAccepterResource
-	ResourceLoggingConfiguration                     = resourceLoggingConfiguration
-	ResourceProxy                                    = newResourceProxy
-	ResourceProxyConfiguration                       = newResourceProxyConfiguration
-	ResourceProxyConfigurationRuleGroupsAttachment   = newResourceProxyConfigurationRuleGroupsAttachmentResource
-	ResourceProxyRuleGroup                           = newResourceProxyRuleGroup
-	ResourceProxyRules                               = newResourceProxyRules
-	ResourceResourcePolicy                           = resourceResourcePolicy
-	ResourceRuleGroup                                = resourceRuleGroup
-	ResourceTLSInspectionConfiguration               = newTLSInspectionConfigurationResource
-	ResourceVPCEndpointAssociation                   = newVPCEndpointAssociationResource
+	ResourceFirewall                                        = resourceFirewall
+	ResourceFirewallPolicy                                  = resourceFirewallPolicy
+	ResourceFirewallTransitGatewayAttachmentAccepter        = newFirewallTransitGatewayAttachmentAccepterResource
+	ResourceLoggingConfiguration                            = resourceLoggingConfiguration
+	ResourceProxy                                           = newResourceProxy
+	ResourceProxyConfiguration                              = newResourceProxyConfiguration
+	ResourceProxyConfigurationRuleGroupAttachmentsExclusive = newResourceProxyConfigurationRuleGroupAttachmentsExclusive
+	ResourceProxyRuleGroup                                  = newResourceProxyRuleGroup
+	ResourceProxyRulesExclusive                             = newResourceProxyRulesExclusive
+	ResourceResourcePolicy                                  = resourceResourcePolicy
+	ResourceRuleGroup                                       = resourceRuleGroup
+	ResourceTLSInspectionConfiguration                      = newTLSInspectionConfigurationResource
+	ResourceVPCEndpointAssociation                          = newVPCEndpointAssociationResource
 
 	FindFirewallByARN                   = findFirewallByARN
 	FindFirewallPolicyByARN             = findFirewallPolicyByARN

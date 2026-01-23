@@ -31,28 +31,29 @@ import (
 	"github.com/hashicorp/terraform-provider-aws/names"
 )
 
-// @FrameworkResource("aws_networkfirewall_proxy_configuration_rule_groups_attachment", name="Proxy Configuration Rule Groups Attachment")
+// @FrameworkResource("aws_networkfirewall_proxy_configuration_rule_group_attachments_exclusive", name="Proxy Configuration Rule Group Attachments Exclusive")
 // @ArnIdentity("proxy_configuration_arn",identityDuplicateAttributes="id")
-func newResourceProxyConfigurationRuleGroupsAttachmentResource(_ context.Context) (resource.ResourceWithConfigure, error) {
-	r := &resourceProxyConfigurationRuleGroupsAttachment{}
+// @Testing(hasNoPreExistingResource=true)
+func newResourceProxyConfigurationRuleGroupAttachmentsExclusive(_ context.Context) (resource.ResourceWithConfigure, error) {
+	r := &resourceProxyConfigurationRuleGroupAttachmentsExclusive{}
 
 	return r, nil
 }
 
 const (
-	ResNameProxyConfigurationRuleGroupsAttachment = "Proxy Configuration Rule Groups Attachment"
+	ResNameProxyConfigurationRuleGroupAttachmentsExclusive = "Proxy Configuration Rule Group Attachments Exclusive"
 )
 
-type resourceProxyConfigurationRuleGroupsAttachment struct {
-	framework.ResourceWithModel[resourceProxyConfigurationRuleGroupsAttachmentModel]
+type resourceProxyConfigurationRuleGroupAttachmentsExclusive struct {
+	framework.ResourceWithModel[proxyConfigurationRuleGroupAttachmentModel]
 	framework.WithImportByIdentity
 }
 
-func (r *resourceProxyConfigurationRuleGroupsAttachment) Metadata(_ context.Context, request resource.MetadataRequest, response *resource.MetadataResponse) {
-	response.TypeName = "aws_networkfirewall_proxy_configuration_rule_groups_attachment"
+func (r *resourceProxyConfigurationRuleGroupAttachmentsExclusive) Metadata(_ context.Context, request resource.MetadataRequest, response *resource.MetadataResponse) {
+	response.TypeName = "aws_networkfirewall_proxy_configuration_rule_group_attachments_exclusive"
 }
 
-func (r *resourceProxyConfigurationRuleGroupsAttachment) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *resourceProxyConfigurationRuleGroupAttachmentsExclusive) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			names.AttrID: framework.IDAttributeDeprecatedWithAlternate(path.Root(names.AttrARN)),
@@ -85,10 +86,10 @@ func (r *resourceProxyConfigurationRuleGroupsAttachment) Schema(ctx context.Cont
 	}
 }
 
-func (r *resourceProxyConfigurationRuleGroupsAttachment) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (r *resourceProxyConfigurationRuleGroupAttachmentsExclusive) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	conn := r.Meta().NetworkFirewallClient(ctx)
 
-	var plan resourceProxyConfigurationRuleGroupsAttachmentModel
+	var plan proxyConfigurationRuleGroupAttachmentModel
 	smerr.AddEnrich(ctx, &resp.Diagnostics, req.Plan.Get(ctx, &plan))
 	if resp.Diagnostics.HasError() {
 		return
@@ -146,10 +147,10 @@ func (r *resourceProxyConfigurationRuleGroupsAttachment) Create(ctx context.Cont
 	smerr.AddEnrich(ctx, &resp.Diagnostics, resp.State.Set(ctx, plan))
 }
 
-func (r *resourceProxyConfigurationRuleGroupsAttachment) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (r *resourceProxyConfigurationRuleGroupAttachmentsExclusive) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	conn := r.Meta().NetworkFirewallClient(ctx)
 
-	var state resourceProxyConfigurationRuleGroupsAttachmentModel
+	var state proxyConfigurationRuleGroupAttachmentModel
 	smerr.AddEnrich(ctx, &resp.Diagnostics, req.State.Get(ctx, &state))
 	if resp.Diagnostics.HasError() {
 		return
@@ -183,10 +184,10 @@ func (r *resourceProxyConfigurationRuleGroupsAttachment) Read(ctx context.Contex
 	smerr.AddEnrich(ctx, &resp.Diagnostics, resp.State.Set(ctx, &state))
 }
 
-func (r *resourceProxyConfigurationRuleGroupsAttachment) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *resourceProxyConfigurationRuleGroupAttachmentsExclusive) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	conn := r.Meta().NetworkFirewallClient(ctx)
 
-	var plan, state resourceProxyConfigurationRuleGroupsAttachmentModel
+	var plan, state proxyConfigurationRuleGroupAttachmentModel
 	smerr.AddEnrich(ctx, &resp.Diagnostics, req.Plan.Get(ctx, &plan))
 	smerr.AddEnrich(ctx, &resp.Diagnostics, req.State.Get(ctx, &state))
 	if resp.Diagnostics.HasError() {
@@ -327,10 +328,10 @@ func (r *resourceProxyConfigurationRuleGroupsAttachment) Update(ctx context.Cont
 	smerr.AddEnrich(ctx, &resp.Diagnostics, resp.State.Set(ctx, &plan))
 }
 
-func (r *resourceProxyConfigurationRuleGroupsAttachment) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (r *resourceProxyConfigurationRuleGroupAttachmentsExclusive) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	conn := r.Meta().NetworkFirewallClient(ctx)
 
-	var state resourceProxyConfigurationRuleGroupsAttachmentModel
+	var state proxyConfigurationRuleGroupAttachmentModel
 	smerr.AddEnrich(ctx, &resp.Diagnostics, req.State.Get(ctx, &state))
 	if resp.Diagnostics.HasError() {
 		return
@@ -389,7 +390,7 @@ func (r *resourceProxyConfigurationRuleGroupsAttachment) Delete(ctx context.Cont
 	}
 }
 
-type resourceProxyConfigurationRuleGroupsAttachmentModel struct {
+type proxyConfigurationRuleGroupAttachmentModel struct {
 	framework.WithRegionModel
 	ID                    types.String                                              `tfsdk:"id"`
 	ProxyConfigurationArn fwtypes.ARN                                               `tfsdk:"proxy_configuration_arn"`
@@ -402,11 +403,11 @@ type RuleGroupAttachmentModel struct {
 	ProxyRuleGroupName types.String `tfsdk:"proxy_rule_group_name"`
 }
 
-func (data *resourceProxyConfigurationRuleGroupsAttachmentModel) setID() {
+func (data *proxyConfigurationRuleGroupAttachmentModel) setID() {
 	data.ID = data.ProxyConfigurationArn.StringValue
 }
 
-func flattenProxyConfigurationRuleGroups(ctx context.Context, out *networkfirewall.DescribeProxyConfigurationOutput, model *resourceProxyConfigurationRuleGroupsAttachmentModel) diag.Diagnostics {
+func flattenProxyConfigurationRuleGroups(ctx context.Context, out *networkfirewall.DescribeProxyConfigurationOutput, model *proxyConfigurationRuleGroupAttachmentModel) diag.Diagnostics {
 	var diags diag.Diagnostics
 
 	if out.ProxyConfiguration == nil || out.ProxyConfiguration.RuleGroups == nil {

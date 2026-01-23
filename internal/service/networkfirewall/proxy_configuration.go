@@ -35,6 +35,7 @@ import (
 // @Tags(identifierAttribute="arn")
 // @ArnIdentity(identityDuplicateAttributes="id")
 // @ArnFormat("proxy-configuration/{name}")
+// @Testing(hasNoPreExistingResource=true)
 func newResourceProxyConfiguration(_ context.Context) (resource.ResourceWithConfigure, error) {
 	r := &resourceProxyConfiguration{}
 
@@ -269,7 +270,7 @@ func findProxyConfigurationByARN(ctx context.Context, conn *networkfirewall.Clie
 	}
 
 	if out == nil || out.ProxyConfiguration == nil {
-		return nil, smarterr.NewError(tfresource.NewEmptyResultError(&input))
+		return nil, smarterr.NewError(tfresource.NewEmptyResultError())
 	}
 
 	if out.ProxyConfiguration.DeleteTime != nil {

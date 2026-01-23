@@ -20,23 +20,23 @@ import (
 	"github.com/hashicorp/terraform-provider-aws/names"
 )
 
-func TestAccNetworkFirewallProxyRules_basic(t *testing.T) {
+func TestAccNetworkFirewallProxyRulesExclusive_basic(t *testing.T) {
 	ctx := acctest.Context(t)
 	var v networkfirewall.DescribeProxyRuleGroupOutput
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
-	resourceName := "aws_networkfirewall_proxy_rules.test"
+	resourceName := "aws_networkfirewall_proxy_rules_exclusive.test"
 	ruleGroupResourceName := "aws_networkfirewall_proxy_rule_group.test"
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, names.NetworkFirewall),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckProxyRulesDestroy(ctx),
+		CheckDestroy:             testAccCheckProxyRulesExclusiveDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProxyRulesConfig_basic(rName),
+				Config: testAccProxyRulesExclusiveConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckProxyRulesExists(ctx, resourceName, &v),
+					testAccCheckProxyRulesExclusiveExists(ctx, resourceName, &v),
 					resource.TestCheckResourceAttrPair(resourceName, "proxy_rule_group_arn", ruleGroupResourceName, names.AttrARN),
 					// Pre-DNS phase
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.#", "1"),
@@ -68,7 +68,7 @@ func TestAccNetworkFirewallProxyRules_basic(t *testing.T) {
 				),
 			},
 			{
-				Config:       testAccProxyRulesConfig_single(rName),
+				Config:       testAccProxyRulesExclusiveConfig_single(rName),
 				ResourceName: resourceName,
 				ImportState:  true,
 			},
@@ -76,23 +76,23 @@ func TestAccNetworkFirewallProxyRules_basic(t *testing.T) {
 	})
 }
 
-func TestAccNetworkFirewallProxyRules_disappears(t *testing.T) {
+func TestAccNetworkFirewallProxyRulesExclusive_disappears(t *testing.T) {
 	ctx := acctest.Context(t)
 	var v networkfirewall.DescribeProxyRuleGroupOutput
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
-	resourceName := "aws_networkfirewall_proxy_rules.test"
+	resourceName := "aws_networkfirewall_proxy_rules_exclusive.test"
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, names.NetworkFirewall),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckProxyRulesDestroy(ctx),
+		CheckDestroy:             testAccCheckProxyRulesExclusiveDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProxyRulesConfig_basic(rName),
+				Config: testAccProxyRulesExclusiveConfig_basic(rName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckProxyRulesExists(ctx, resourceName, &v),
-					acctest.CheckFrameworkResourceDisappears(ctx, acctest.Provider, tfnetworkfirewall.ResourceProxyRules, resourceName),
+					testAccCheckProxyRulesExclusiveExists(ctx, resourceName, &v),
+					acctest.CheckFrameworkResourceDisappears(ctx, t, tfnetworkfirewall.ResourceProxyRulesExclusive, resourceName),
 				),
 				ExpectNonEmptyPlan: true,
 				ConfigPlanChecks: resource.ConfigPlanChecks{
@@ -105,22 +105,22 @@ func TestAccNetworkFirewallProxyRules_disappears(t *testing.T) {
 	})
 }
 
-func TestAccNetworkFirewallProxyRules_updateAdd(t *testing.T) {
+func TestAccNetworkFirewallProxyRulesExclusive_updateAdd(t *testing.T) {
 	ctx := acctest.Context(t)
 	var v1, v2 networkfirewall.DescribeProxyRuleGroupOutput
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
-	resourceName := "aws_networkfirewall_proxy_rules.test"
+	resourceName := "aws_networkfirewall_proxy_rules_exclusive.test"
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, names.NetworkFirewall),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckProxyRulesDestroy(ctx),
+		CheckDestroy:             testAccCheckProxyRulesExclusiveDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProxyRulesConfig_single(rName),
+				Config: testAccProxyRulesExclusiveConfig_single(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckProxyRulesExists(ctx, resourceName, &v1),
+					testAccCheckProxyRulesExclusiveExists(ctx, resourceName, &v1),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "pre_request.#", "0"),
 					resource.TestCheckResourceAttr(resourceName, "post_response.#", "0"),
@@ -132,9 +132,9 @@ func TestAccNetworkFirewallProxyRules_updateAdd(t *testing.T) {
 				ImportStateVerify: true,
 			},
 			{
-				Config: testAccProxyRulesConfig_add(rName),
+				Config: testAccProxyRulesExclusiveConfig_add(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckProxyRulesExists(ctx, resourceName, &v2),
+					testAccCheckProxyRulesExclusiveExists(ctx, resourceName, &v2),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "pre_request.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "post_response.#", "1"),
@@ -146,22 +146,22 @@ func TestAccNetworkFirewallProxyRules_updateAdd(t *testing.T) {
 	})
 }
 
-func TestAccNetworkFirewallProxyRules_updateModify(t *testing.T) {
+func TestAccNetworkFirewallProxyRulesExclusive_updateModify(t *testing.T) {
 	ctx := acctest.Context(t)
 	var v1, v2 networkfirewall.DescribeProxyRuleGroupOutput
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
-	resourceName := "aws_networkfirewall_proxy_rules.test"
+	resourceName := "aws_networkfirewall_proxy_rules_exclusive.test"
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, names.NetworkFirewall),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckProxyRulesDestroy(ctx),
+		CheckDestroy:             testAccCheckProxyRulesExclusiveDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProxyRulesConfig_basic(rName),
+				Config: testAccProxyRulesExclusiveConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckProxyRulesExists(ctx, resourceName, &v1),
+					testAccCheckProxyRulesExclusiveExists(ctx, resourceName, &v1),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.action", "ALLOW"),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.conditions.0.condition_values.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.conditions.0.condition_values.0", "amazonaws.com"),
@@ -173,9 +173,9 @@ func TestAccNetworkFirewallProxyRules_updateModify(t *testing.T) {
 				ImportStateVerify: true,
 			},
 			{
-				Config: testAccProxyRulesConfig_modified(rName),
+				Config: testAccProxyRulesExclusiveConfig_modified(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckProxyRulesExists(ctx, resourceName, &v2),
+					testAccCheckProxyRulesExclusiveExists(ctx, resourceName, &v2),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.action", "DENY"),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.conditions.0.condition_values.#", "2"),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.conditions.0.condition_values.0", "example.com"),
@@ -186,22 +186,22 @@ func TestAccNetworkFirewallProxyRules_updateModify(t *testing.T) {
 	})
 }
 
-func TestAccNetworkFirewallProxyRules_updateRemove(t *testing.T) {
+func TestAccNetworkFirewallProxyRulesExclusive_updateRemove(t *testing.T) {
 	ctx := acctest.Context(t)
 	var v1, v2 networkfirewall.DescribeProxyRuleGroupOutput
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
-	resourceName := "aws_networkfirewall_proxy_rules.test"
+	resourceName := "aws_networkfirewall_proxy_rules_exclusive.test"
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, names.NetworkFirewall),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckProxyRulesDestroy(ctx),
+		CheckDestroy:             testAccCheckProxyRulesExclusiveDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProxyRulesConfig_basic(rName),
+				Config: testAccProxyRulesExclusiveConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckProxyRulesExists(ctx, resourceName, &v1),
+					testAccCheckProxyRulesExclusiveExists(ctx, resourceName, &v1),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "pre_request.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "post_response.#", "1"),
@@ -213,9 +213,9 @@ func TestAccNetworkFirewallProxyRules_updateRemove(t *testing.T) {
 				ImportStateVerify: true,
 			},
 			{
-				Config: testAccProxyRulesConfig_single(rName),
+				Config: testAccProxyRulesExclusiveConfig_single(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckProxyRulesExists(ctx, resourceName, &v2),
+					testAccCheckProxyRulesExclusiveExists(ctx, resourceName, &v2),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "pre_request.#", "0"),
 					resource.TestCheckResourceAttr(resourceName, "post_response.#", "0"),
@@ -225,22 +225,22 @@ func TestAccNetworkFirewallProxyRules_updateRemove(t *testing.T) {
 	})
 }
 
-func TestAccNetworkFirewallProxyRules_multipleRulesPerPhase(t *testing.T) {
+func TestAccNetworkFirewallProxyRulesExclusive_multipleRulesPerPhase(t *testing.T) {
 	ctx := acctest.Context(t)
 	var v networkfirewall.DescribeProxyRuleGroupOutput
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
-	resourceName := "aws_networkfirewall_proxy_rules.test"
+	resourceName := "aws_networkfirewall_proxy_rules_exclusive.test"
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, names.NetworkFirewall),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckProxyRulesDestroy(ctx),
+		CheckDestroy:             testAccCheckProxyRulesExclusiveDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProxyRulesConfig_multiplePerPhase(rName),
+				Config: testAccProxyRulesExclusiveConfig_multiplePerPhase(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckProxyRulesExists(ctx, resourceName, &v),
+					testAccCheckProxyRulesExclusiveExists(ctx, resourceName, &v),
 					// Pre-DNS phase - 2 rules
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.#", "2"),
 					resource.TestCheckResourceAttr(resourceName, "pre_dns.0.proxy_rule_name", fmt.Sprintf("%s-predns-1", rName)),
@@ -277,12 +277,12 @@ func TestAccNetworkFirewallProxyRules_multipleRulesPerPhase(t *testing.T) {
 	})
 }
 
-func testAccCheckProxyRulesDestroy(ctx context.Context) resource.TestCheckFunc {
+func testAccCheckProxyRulesExclusiveDestroy(ctx context.Context) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		conn := acctest.Provider.Meta().(*conns.AWSClient).NetworkFirewallClient(ctx)
 
 		for _, rs := range s.RootModule().Resources {
-			if rs.Type != "aws_networkfirewall_proxy_rules" {
+			if rs.Type != "aws_networkfirewall_proxy_rules_exclusive" {
 				continue
 			}
 
@@ -310,7 +310,7 @@ func testAccCheckProxyRulesDestroy(ctx context.Context) resource.TestCheckFunc {
 	}
 }
 
-func testAccCheckProxyRulesExists(ctx context.Context, n string, v *networkfirewall.DescribeProxyRuleGroupOutput) resource.TestCheckFunc {
+func testAccCheckProxyRulesExclusiveExists(ctx context.Context, n string, v *networkfirewall.DescribeProxyRuleGroupOutput) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[n]
 		if !ok {
@@ -331,18 +331,19 @@ func testAccCheckProxyRulesExists(ctx context.Context, n string, v *networkfirew
 	}
 }
 
-func testAccProxyRulesConfig_basic(rName string) string {
+func testAccProxyRulesExclusiveConfig_basic(rName string) string {
 	return fmt.Sprintf(`
 resource "aws_networkfirewall_proxy_rule_group" "test" {
   name = %[1]q
 }
 
-resource "aws_networkfirewall_proxy_rules" "test" {
+resource "aws_networkfirewall_proxy_rules_exclusive" "test" {
   proxy_rule_group_arn = aws_networkfirewall_proxy_rule_group.test.arn
 
   pre_dns {
     proxy_rule_name = "%[1]s-predns"
     action          = "ALLOW"
+	description     = "%[1]s-predns-description"
 
     conditions {
       condition_key      = "request:DestinationDomain"
@@ -354,6 +355,7 @@ resource "aws_networkfirewall_proxy_rules" "test" {
   pre_request {
     proxy_rule_name = "%[1]s-prerequest"
     action          = "DENY"
+    description     = "%[1]s-prerequest-description"
 
     conditions {
       condition_key      = "request:Http:Method"
@@ -365,6 +367,7 @@ resource "aws_networkfirewall_proxy_rules" "test" {
   post_response {
     proxy_rule_name = "%[1]s-postresponse"
     action          = "ALERT"
+	description     = "%[1]s-postresponse-description"
 
     conditions {
       condition_key      = "response:Http:StatusCode"
@@ -376,13 +379,13 @@ resource "aws_networkfirewall_proxy_rules" "test" {
 `, rName)
 }
 
-func testAccProxyRulesConfig_single(rName string) string {
+func testAccProxyRulesExclusiveConfig_single(rName string) string {
 	return fmt.Sprintf(`
 resource "aws_networkfirewall_proxy_rule_group" "test" {
   name = %[1]q
 }
 
-resource "aws_networkfirewall_proxy_rules" "test" {
+resource "aws_networkfirewall_proxy_rules_exclusive" "test" {
   proxy_rule_group_arn = aws_networkfirewall_proxy_rule_group.test.arn
 
   pre_dns {
@@ -399,18 +402,19 @@ resource "aws_networkfirewall_proxy_rules" "test" {
 `, rName)
 }
 
-func testAccProxyRulesConfig_modified(rName string) string {
+func testAccProxyRulesExclusiveConfig_modified(rName string) string {
 	return fmt.Sprintf(`
 resource "aws_networkfirewall_proxy_rule_group" "test" {
   name = %[1]q
 }
 
-resource "aws_networkfirewall_proxy_rules" "test" {
+resource "aws_networkfirewall_proxy_rules_exclusive" "test" {
   proxy_rule_group_arn = aws_networkfirewall_proxy_rule_group.test.arn
 
   pre_dns {
     proxy_rule_name = "%[1]s-predns"
-    action          = "DENY"
+    action          = "ALLOW"
+	description     = "%[1]s-predns-description"
 
     conditions {
       condition_key      = "request:DestinationDomain"
@@ -433,6 +437,7 @@ resource "aws_networkfirewall_proxy_rules" "test" {
   post_response {
     proxy_rule_name = "%[1]s-postresponse"
     action          = "ALERT"
+	description     = "%[1]s-postresponse-description"
 
     conditions {
       condition_key      = "response:Http:StatusCode"
@@ -444,13 +449,13 @@ resource "aws_networkfirewall_proxy_rules" "test" {
 `, rName)
 }
 
-func testAccProxyRulesConfig_add(rName string) string {
+func testAccProxyRulesExclusiveConfig_add(rName string) string {
 	return fmt.Sprintf(`
 resource "aws_networkfirewall_proxy_rule_group" "test" {
   name = %[1]q
 }
 
-resource "aws_networkfirewall_proxy_rules" "test" {
+resource "aws_networkfirewall_proxy_rules_exclusive" "test" {
   proxy_rule_group_arn = aws_networkfirewall_proxy_rule_group.test.arn
 
   pre_dns {
@@ -489,13 +494,13 @@ resource "aws_networkfirewall_proxy_rules" "test" {
 `, rName)
 }
 
-func testAccProxyRulesConfig_multiplePerPhase(rName string) string {
+func testAccProxyRulesExclusiveConfig_multiplePerPhase(rName string) string {
 	return fmt.Sprintf(`
 resource "aws_networkfirewall_proxy_rule_group" "test" {
   name = %[1]q
 }
 
-resource "aws_networkfirewall_proxy_rules" "test" {
+resource "aws_networkfirewall_proxy_rules_exclusive" "test" {
   proxy_rule_group_arn = aws_networkfirewall_proxy_rule_group.test.arn
 
   pre_dns {

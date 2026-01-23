@@ -1,24 +1,14 @@
 ---
 subcategory: "Network Firewall"
 layout: "aws"
-page_title: "AWS: aws_networkfirewall_proxy_rules"
+page_title: "AWS: aws_networkfirewall_proxy_rules_exclusive"
 description: |-
-  Manages AWS Network Firewall Proxy Rules within a Proxy Rule Group.
+  Manages AWS Network Firewall Proxy Rules Exclusive within a Proxy Rule Group.
 ---
-<!---
-Documentation guidelines:
-- Begin resource descriptions with "Manages..."
-- Use simple language and avoid jargon
-- Focus on brevity and clarity
-- Use present tense and active voice
-- Don't begin argument/attribute descriptions with "An", "The", "Defines", "Indicates", or "Specifies"
-- Boolean arguments should begin with "Whether to"
-- Use "example" instead of "test" in examples
---->
 
-# Resource: aws_networkfirewall_proxy_rules
+# Resource: aws_networkfirewall_proxy_rules_exclusive
 
-Manages AWS Network Firewall Proxy Rules within a Proxy Rule Group. Proxy rules define conditions and actions for HTTP/HTTPS traffic inspection across three request/response phases: PRE_DNS, PRE_REQUEST, and POST_RESPONSE.
+Manages AWS Network Firewall Proxy Rules Exclusive within a Proxy Rule Group. Proxy rules define conditions and actions for HTTP/HTTPS traffic inspection across three request/response phases: PRE_DNS, PRE_REQUEST, and POST_RESPONSE.
 
 ~> **NOTE:** This resource requires an existing [`aws_networkfirewall_proxy_rule_group`](networkfirewall_proxy_rule_group.html).
 
@@ -31,7 +21,7 @@ resource "aws_networkfirewall_proxy_rule_group" "example" {
   name = "example"
 }
 
-resource "aws_networkfirewall_proxy_rules" "example" {
+resource "aws_networkfirewall_proxy_rules_exclusive" "example" {
   proxy_rule_group_arn = aws_networkfirewall_proxy_rule_group.example.arn
 
   pre_dns {
@@ -54,7 +44,7 @@ resource "aws_networkfirewall_proxy_rule_group" "example" {
   name = "example"
 }
 
-resource "aws_networkfirewall_proxy_rules" "example" {
+resource "aws_networkfirewall_proxy_rules_exclusive" "example" {
   proxy_rule_group_arn = aws_networkfirewall_proxy_rule_group.example.arn
 
   # DNS phase rules
@@ -111,7 +101,7 @@ resource "aws_networkfirewall_proxy_rule_group" "example" {
   name = "example"
 }
 
-resource "aws_networkfirewall_proxy_rules" "example" {
+resource "aws_networkfirewall_proxy_rules_exclusive" "example" {
   proxy_rule_group_name = aws_networkfirewall_proxy_rule_group.example.name
 
   pre_dns {
@@ -169,19 +159,19 @@ This resource exports the following attributes in addition to the arguments abov
 
 ## Import
 
-In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Network Firewall Proxy Rules using the `proxy_rule_group_arn,rule_name1[,rule_name2,...]`. For example:
+In Terraform v1.5.0 and later, use an [`import` block](https://developer.hashicorp.com/terraform/language/import) to import Network Firewall Proxy Rules Exclusive using the `proxy_rule_group_arn,rule_name1[,rule_name2,...]`. For example:
 
 ```terraform
 import {
-  to = aws_networkfirewall_proxy_rules.example
+  to = aws_networkfirewall_proxy_rules_exclusive.example
   id = "arn:aws:network-firewall:us-west-2:123456789012:proxy-rule-group/example,allow-example-com,block-malicious-domains"
 }
 ```
 
-Using `terraform import`, import Network Firewall Proxy Rules using the `proxy_rule_group_arn,rule_name1[,rule_name2,...]`. For example:
+Using `terraform import`, import Network Firewall Proxy Rules Exclusive using the `proxy_rule_group_arn,rule_name1[,rule_name2,...]`. For example:
 
 ```console
-% terraform import aws_networkfirewall_proxy_rules.example "arn:aws:network-firewall:us-west-2:123456789012:proxy-rule-group/example,allow-example-com,block-malicious-domains"
+% terraform import aws_networkfirewall_proxy_rules_exclusive.example "arn:aws:network-firewall:us-west-2:123456789012:proxy-rule-group/example,allow-example-com,block-malicious-domains"
 ```
 
 ~> **NOTE:** When importing, specify the proxy rule group ARN followed by a comma-separated list of rule names to import. The import will fetch only the specified rules from the rule group.

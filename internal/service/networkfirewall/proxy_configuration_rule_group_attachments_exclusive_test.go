@@ -23,11 +23,11 @@ import (
 	"github.com/hashicorp/terraform-provider-aws/names"
 )
 
-func TestAccNetworkFirewallProxyConfigurationRuleGroupsAttachment_basic(t *testing.T) {
+func TestAccNetworkFirewallProxyConfigurationRuleGroupAttachmentsExclusive_basic(t *testing.T) {
 	ctx := acctest.Context(t)
 	var v networkfirewall.DescribeProxyConfigurationOutput
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
-	resourceName := "aws_networkfirewall_proxy_configuration_rule_groups_attachment.test"
+	resourceName := "aws_networkfirewall_proxy_configuration_rule_group_attachments_exclusive.test"
 	proxyConfigResourceName := "aws_networkfirewall_proxy_configuration.test"
 	ruleGroup1ResourceName := "aws_networkfirewall_proxy_rule_group.test1"
 
@@ -35,12 +35,12 @@ func TestAccNetworkFirewallProxyConfigurationRuleGroupsAttachment_basic(t *testi
 		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, names.NetworkFirewall),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckProxyConfigurationRuleGroupsAttachmentDestroy(ctx),
+		CheckDestroy:             testAccCheckProxyConfigurationRuleGroupAttachmentsExclusiveDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProxyConfigurationRuleGroupsAttachmentConfig_basic(rName),
+				Config: testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckProxyConfigurationRuleGroupsAttachmentExists(ctx, resourceName, &v),
+					testAccCheckProxyConfigurationRuleGroupAttachmentsExclusiveExists(ctx, resourceName, &v),
 					resource.TestCheckResourceAttrPair(resourceName, names.AttrID, proxyConfigResourceName, names.AttrARN),
 					resource.TestCheckResourceAttrPair(resourceName, "proxy_configuration_arn", proxyConfigResourceName, names.AttrARN),
 					resource.TestCheckResourceAttr(resourceName, "rule_group.#", "1"),
@@ -58,23 +58,23 @@ func TestAccNetworkFirewallProxyConfigurationRuleGroupsAttachment_basic(t *testi
 	})
 }
 
-func TestAccNetworkFirewallProxyConfigurationRuleGroupsAttachment_disappears(t *testing.T) {
+func TestAccNetworkFirewallProxyConfigurationRuleGroupAttachmentsExclusive_disappears(t *testing.T) {
 	ctx := acctest.Context(t)
 	var v networkfirewall.DescribeProxyConfigurationOutput
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
-	resourceName := "aws_networkfirewall_proxy_configuration_rule_groups_attachment.test"
+	resourceName := "aws_networkfirewall_proxy_configuration_rule_group_attachments_exclusive.test"
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, names.NetworkFirewall),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckProxyConfigurationRuleGroupsAttachmentDestroy(ctx),
+		CheckDestroy:             testAccCheckProxyConfigurationRuleGroupAttachmentsExclusiveDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProxyConfigurationRuleGroupsAttachmentConfig_basic(rName),
+				Config: testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_basic(rName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckProxyConfigurationRuleGroupsAttachmentExists(ctx, resourceName, &v),
-					acctest.CheckFrameworkResourceDisappearsWithStateFunc(ctx, acctest.Provider, tfnetworkfirewall.ResourceProxyConfigurationRuleGroupsAttachment, resourceName, proxyConfigurationRuleGroupsAttachmentDisappearsStateFunc),
+					testAccCheckProxyConfigurationRuleGroupAttachmentsExclusiveExists(ctx, resourceName, &v),
+					acctest.CheckFrameworkResourceDisappearsWithStateFunc(ctx, t, tfnetworkfirewall.ResourceProxyConfigurationRuleGroupAttachmentsExclusive, resourceName, proxyConfigurationRuleGroupAttachmentsExclusiveDisappearsStateFunc),
 				),
 				ExpectNonEmptyPlan: true,
 			},
@@ -82,23 +82,23 @@ func TestAccNetworkFirewallProxyConfigurationRuleGroupsAttachment_disappears(t *
 	})
 }
 
-func TestAccNetworkFirewallProxyConfigurationRuleGroupsAttachment_updateAdd(t *testing.T) {
+func TestAccNetworkFirewallProxyConfigurationRuleGroupAttachmentsExclusive_updateAdd(t *testing.T) {
 	ctx := acctest.Context(t)
 	var v1, v2 networkfirewall.DescribeProxyConfigurationOutput
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
-	resourceName := "aws_networkfirewall_proxy_configuration_rule_groups_attachment.test"
+	resourceName := "aws_networkfirewall_proxy_configuration_rule_group_attachments_exclusive.test"
 	ruleGroup3ResourceName := "aws_networkfirewall_proxy_rule_group.test3"
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, names.NetworkFirewall),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckProxyConfigurationRuleGroupsAttachmentDestroy(ctx),
+		CheckDestroy:             testAccCheckProxyConfigurationRuleGroupAttachmentsExclusiveDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProxyConfigurationRuleGroupsAttachmentConfig_twoRuleGroups(rName),
+				Config: testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_twoRuleGroups(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckProxyConfigurationRuleGroupsAttachmentExists(ctx, resourceName, &v1),
+					testAccCheckProxyConfigurationRuleGroupAttachmentsExclusiveExists(ctx, resourceName, &v1),
 					resource.TestCheckResourceAttr(resourceName, "rule_group.#", "2"),
 				),
 			},
@@ -109,9 +109,9 @@ func TestAccNetworkFirewallProxyConfigurationRuleGroupsAttachment_updateAdd(t *t
 				ImportStateVerifyIgnore: []string{"update_token"},
 			},
 			{
-				Config: testAccProxyConfigurationRuleGroupsAttachmentConfig_threeRuleGroups(rName),
+				Config: testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_threeRuleGroups(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckProxyConfigurationRuleGroupsAttachmentExists(ctx, resourceName, &v2),
+					testAccCheckProxyConfigurationRuleGroupAttachmentsExclusiveExists(ctx, resourceName, &v2),
 					resource.TestCheckResourceAttr(resourceName, "rule_group.#", "3"),
 					resource.TestCheckResourceAttrPair(resourceName, "rule_group.2.proxy_rule_group_name", ruleGroup3ResourceName, names.AttrName),
 				),
@@ -120,22 +120,22 @@ func TestAccNetworkFirewallProxyConfigurationRuleGroupsAttachment_updateAdd(t *t
 	})
 }
 
-func TestAccNetworkFirewallProxyConfigurationRuleGroupsAttachment_updateRemove(t *testing.T) {
+func TestAccNetworkFirewallProxyConfigurationRuleGroupAttachmentsExclusive_updateRemove(t *testing.T) {
 	ctx := acctest.Context(t)
 	var v1, v2 networkfirewall.DescribeProxyConfigurationOutput
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
-	resourceName := "aws_networkfirewall_proxy_configuration_rule_groups_attachment.test"
+	resourceName := "aws_networkfirewall_proxy_configuration_rule_group_attachments_exclusive.test"
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, names.NetworkFirewall),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckProxyConfigurationRuleGroupsAttachmentDestroy(ctx),
+		CheckDestroy:             testAccCheckProxyConfigurationRuleGroupAttachmentsExclusiveDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProxyConfigurationRuleGroupsAttachmentConfig_twoRuleGroups(rName),
+				Config: testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_twoRuleGroups(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckProxyConfigurationRuleGroupsAttachmentExists(ctx, resourceName, &v1),
+					testAccCheckProxyConfigurationRuleGroupAttachmentsExclusiveExists(ctx, resourceName, &v1),
 					resource.TestCheckResourceAttr(resourceName, "rule_group.#", "2"),
 				),
 			},
@@ -146,9 +146,9 @@ func TestAccNetworkFirewallProxyConfigurationRuleGroupsAttachment_updateRemove(t
 				ImportStateVerifyIgnore: []string{"update_token"},
 			},
 			{
-				Config: testAccProxyConfigurationRuleGroupsAttachmentConfig_basic(rName),
+				Config: testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckProxyConfigurationRuleGroupsAttachmentExists(ctx, resourceName, &v2),
+					testAccCheckProxyConfigurationRuleGroupAttachmentsExclusiveExists(ctx, resourceName, &v2),
 					resource.TestCheckResourceAttr(resourceName, "rule_group.#", "1"),
 				),
 			},
@@ -156,11 +156,11 @@ func TestAccNetworkFirewallProxyConfigurationRuleGroupsAttachment_updateRemove(t
 	})
 }
 
-func TestAccNetworkFirewallProxyConfigurationRuleGroupsAttachment_updateReorder(t *testing.T) {
+func TestAccNetworkFirewallProxyConfigurationRuleGroupAttachmentsExclusive_updateReorder(t *testing.T) {
 	ctx := acctest.Context(t)
 	var v1, v2 networkfirewall.DescribeProxyConfigurationOutput
 	rName := sdkacctest.RandomWithPrefix(acctest.ResourcePrefix)
-	resourceName := "aws_networkfirewall_proxy_configuration_rule_groups_attachment.test"
+	resourceName := "aws_networkfirewall_proxy_configuration_rule_group_attachments_exclusive.test"
 	ruleGroup1ResourceName := "aws_networkfirewall_proxy_rule_group.test1"
 	ruleGroup2ResourceName := "aws_networkfirewall_proxy_rule_group.test2"
 
@@ -168,21 +168,21 @@ func TestAccNetworkFirewallProxyConfigurationRuleGroupsAttachment_updateReorder(
 		PreCheck:                 func() { acctest.PreCheck(ctx, t); testAccPreCheck(ctx, t) },
 		ErrorCheck:               acctest.ErrorCheck(t, names.NetworkFirewall),
 		ProtoV5ProviderFactories: acctest.ProtoV5ProviderFactories,
-		CheckDestroy:             testAccCheckProxyConfigurationRuleGroupsAttachmentDestroy(ctx),
+		CheckDestroy:             testAccCheckProxyConfigurationRuleGroupAttachmentsExclusiveDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProxyConfigurationRuleGroupsAttachmentConfig_twoRuleGroups(rName),
+				Config: testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_twoRuleGroups(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckProxyConfigurationRuleGroupsAttachmentExists(ctx, resourceName, &v1),
+					testAccCheckProxyConfigurationRuleGroupAttachmentsExclusiveExists(ctx, resourceName, &v1),
 					resource.TestCheckResourceAttr(resourceName, "rule_group.#", "2"),
 					resource.TestCheckResourceAttrPair(resourceName, "rule_group.0.proxy_rule_group_name", ruleGroup1ResourceName, names.AttrName),
 					resource.TestCheckResourceAttrPair(resourceName, "rule_group.1.proxy_rule_group_name", ruleGroup2ResourceName, names.AttrName),
 				),
 			},
 			{
-				Config: testAccProxyConfigurationRuleGroupsAttachmentConfig_twoRuleGroupsReversed(rName),
+				Config: testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_twoRuleGroupsReversed(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckProxyConfigurationRuleGroupsAttachmentExists(ctx, resourceName, &v2),
+					testAccCheckProxyConfigurationRuleGroupAttachmentsExclusiveExists(ctx, resourceName, &v2),
 					resource.TestCheckResourceAttr(resourceName, "rule_group.#", "2"),
 					resource.TestCheckResourceAttrPair(resourceName, "rule_group.0.proxy_rule_group_name", ruleGroup2ResourceName, names.AttrName),
 					resource.TestCheckResourceAttrPair(resourceName, "rule_group.1.proxy_rule_group_name", ruleGroup1ResourceName, names.AttrName),
@@ -192,12 +192,12 @@ func TestAccNetworkFirewallProxyConfigurationRuleGroupsAttachment_updateReorder(
 	})
 }
 
-func testAccCheckProxyConfigurationRuleGroupsAttachmentDestroy(ctx context.Context) resource.TestCheckFunc {
+func testAccCheckProxyConfigurationRuleGroupAttachmentsExclusiveDestroy(ctx context.Context) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		conn := acctest.Provider.Meta().(*conns.AWSClient).NetworkFirewallClient(ctx)
 
 		for _, rs := range s.RootModule().Resources {
-			if rs.Type != "aws_networkfirewall_proxy_configuration_rule_groups_attachment" {
+			if rs.Type != "aws_networkfirewall_proxy_configuration_rule_group_attachments_exclusive" {
 				continue
 			}
 
@@ -214,7 +214,7 @@ func testAccCheckProxyConfigurationRuleGroupsAttachmentDestroy(ctx context.Conte
 			// Check if there are any rule groups attached
 			if out != nil && out.ProxyConfiguration != nil && out.ProxyConfiguration.RuleGroups != nil {
 				if len(out.ProxyConfiguration.RuleGroups) > 0 {
-					return fmt.Errorf("NetworkFirewall Proxy Configuration Rule Groups Attachment still exists: %s has %d rule groups", rs.Primary.ID, len(out.ProxyConfiguration.RuleGroups))
+					return fmt.Errorf("NetworkFirewall Proxy Configuration Rule Group Attachment still exists: %s has %d rule groups", rs.Primary.ID, len(out.ProxyConfiguration.RuleGroups))
 				}
 			}
 		}
@@ -223,7 +223,7 @@ func testAccCheckProxyConfigurationRuleGroupsAttachmentDestroy(ctx context.Conte
 	}
 }
 
-func testAccCheckProxyConfigurationRuleGroupsAttachmentExists(ctx context.Context, n string, v *networkfirewall.DescribeProxyConfigurationOutput) resource.TestCheckFunc {
+func testAccCheckProxyConfigurationRuleGroupAttachmentsExclusiveExists(ctx context.Context, n string, v *networkfirewall.DescribeProxyConfigurationOutput) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[n]
 		if !ok {
@@ -244,7 +244,7 @@ func testAccCheckProxyConfigurationRuleGroupsAttachmentExists(ctx context.Contex
 	}
 }
 
-func proxyConfigurationRuleGroupsAttachmentDisappearsStateFunc(ctx context.Context, state *tfsdk.State, is *terraform.InstanceState) error {
+func proxyConfigurationRuleGroupAttachmentsExclusiveDisappearsStateFunc(ctx context.Context, state *tfsdk.State, is *terraform.InstanceState) error {
 	// Set the id attribute (needed for Delete to find the resource)
 	if v, ok := is.Attributes[names.AttrID]; ok {
 		if diags := state.SetAttribute(ctx, path.Root(names.AttrID), types.StringValue(v)); diags.HasError() {
@@ -278,7 +278,7 @@ func proxyConfigurationRuleGroupsAttachmentDisappearsStateFunc(ctx context.Conte
 	return nil
 }
 
-func testAccProxyConfigurationRuleGroupsAttachmentConfig_base(rName string) string {
+func testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_base(rName string) string {
 	return fmt.Sprintf(`
 resource "aws_networkfirewall_proxy_configuration" "test" {
   name = %[1]q
@@ -304,11 +304,11 @@ resource "aws_networkfirewall_proxy_rule_group" "test3" {
 `, rName)
 }
 
-func testAccProxyConfigurationRuleGroupsAttachmentConfig_basic(rName string) string {
+func testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_basic(rName string) string {
 	return acctest.ConfigCompose(
-		testAccProxyConfigurationRuleGroupsAttachmentConfig_base(rName),
+		testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_base(rName),
 		`
-resource "aws_networkfirewall_proxy_configuration_rule_groups_attachment" "test" {
+resource "aws_networkfirewall_proxy_configuration_rule_group_attachments_exclusive" "test" {
   proxy_configuration_arn = aws_networkfirewall_proxy_configuration.test.arn
 
   rule_group {
@@ -318,11 +318,11 @@ resource "aws_networkfirewall_proxy_configuration_rule_groups_attachment" "test"
 `)
 }
 
-func testAccProxyConfigurationRuleGroupsAttachmentConfig_twoRuleGroups(rName string) string {
+func testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_twoRuleGroups(rName string) string {
 	return acctest.ConfigCompose(
-		testAccProxyConfigurationRuleGroupsAttachmentConfig_base(rName),
+		testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_base(rName),
 		`
-resource "aws_networkfirewall_proxy_configuration_rule_groups_attachment" "test" {
+resource "aws_networkfirewall_proxy_configuration_rule_group_attachments_exclusive" "test" {
   proxy_configuration_arn = aws_networkfirewall_proxy_configuration.test.arn
 
   rule_group {
@@ -336,11 +336,11 @@ resource "aws_networkfirewall_proxy_configuration_rule_groups_attachment" "test"
 `)
 }
 
-func testAccProxyConfigurationRuleGroupsAttachmentConfig_twoRuleGroupsReversed(rName string) string {
+func testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_twoRuleGroupsReversed(rName string) string {
 	return acctest.ConfigCompose(
-		testAccProxyConfigurationRuleGroupsAttachmentConfig_base(rName),
+		testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_base(rName),
 		`
-resource "aws_networkfirewall_proxy_configuration_rule_groups_attachment" "test" {
+resource "aws_networkfirewall_proxy_configuration_rule_group_attachments_exclusive" "test" {
   proxy_configuration_arn = aws_networkfirewall_proxy_configuration.test.arn
 
   rule_group {
@@ -354,11 +354,11 @@ resource "aws_networkfirewall_proxy_configuration_rule_groups_attachment" "test"
 `)
 }
 
-func testAccProxyConfigurationRuleGroupsAttachmentConfig_threeRuleGroups(rName string) string {
+func testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_threeRuleGroups(rName string) string {
 	return acctest.ConfigCompose(
-		testAccProxyConfigurationRuleGroupsAttachmentConfig_base(rName),
+		testAccProxyConfigurationRuleGroupAttachmentsExclusiveConfig_base(rName),
 		`
-resource "aws_networkfirewall_proxy_configuration_rule_groups_attachment" "test" {
+resource "aws_networkfirewall_proxy_configuration_rule_group_attachments_exclusive" "test" {
   proxy_configuration_arn = aws_networkfirewall_proxy_configuration.test.arn
 
   rule_group {

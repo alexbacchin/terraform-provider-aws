@@ -85,7 +85,7 @@ func TestAccNetworkFirewallProxy_disappears(t *testing.T) {
 				Config: testAccProxyConfig_basic(rName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckProxyExists(ctx, resourceName, &v),
-					acctest.CheckFrameworkResourceDisappears(ctx, acctest.Provider, tfnetworkfirewall.ResourceProxy, resourceName),
+					acctest.CheckFrameworkResourceDisappears(ctx, t, tfnetworkfirewall.ResourceProxy, resourceName),
 				),
 				ExpectNonEmptyPlan: true,
 				ConfigPlanChecks: resource.ConfigPlanChecks{
@@ -360,7 +360,8 @@ data "aws_region" "current" {}
 
 # Create a root CA for TLS interception
 resource "aws_acmpca_certificate_authority" "test" {
-  type = "ROOT"
+  type       = "ROOT"
+  usage_mode = "SHORT_LIVED_CERTIFICATE"
 
   certificate_authority_configuration {
     key_algorithm     = "RSA_2048"
@@ -377,6 +378,27 @@ resource "aws_acmpca_certificate_authority" "test" {
     Name = %[1]q
   }
 }
+
+resource "aws_acmpca_certificate" "test" {
+  certificate_authority_arn   = aws_acmpca_certificate_authority.test.arn
+  certificate_signing_request = aws_acmpca_certificate_authority.test.certificate_signing_request
+  signing_algorithm           = "SHA512WITHRSA"
+
+  template_arn = "arn:${data.aws_partition.current.partition}:acm-pca:::template/RootCACertificate/V1"
+
+  validity {
+    type  = "YEARS"
+    value = 1
+  }
+}
+
+resource "aws_acmpca_certificate_authority_certificate" "test" {
+  certificate_authority_arn = aws_acmpca_certificate_authority.test.arn
+
+  certificate       = aws_acmpca_certificate.test.certificate
+  certificate_chain = aws_acmpca_certificate.test.certificate_chain
+}
+
 
 # Grant Network Firewall proxy permission to use the PCA
 resource "aws_acmpca_policy" "test" {
@@ -431,23 +453,20 @@ resource "aws_acmpca_policy" "test" {
 # Create RAM resource share for the PCA
 resource "aws_ram_resource_share" "test" {
   name                      = %[1]q
-  allow_external_principals = false
+  allow_external_principals = true
+  permission_arns = ["arn:aws:ram::aws:permission/AWSRAMSubordinateCACertificatePathLen0IssuanceCertificateAuthority"]
 
   tags = {
     Name = %[1]q
   }
 }
-
+  
 # Associate the PCA with the RAM share
-resource "aws_ram_resource_association" "test" {
-  resource_arn       = aws_acmpca_certificate_authority.test.arn
+resource "aws_ram_resource_share_associations_exclusive" "test" {
+  principals         = ["proxy.network-firewall.amazonaws.com"]
+  resource_arns      = [aws_acmpca_certificate_authority.test.arn]
   resource_share_arn = aws_ram_resource_share.test.arn
-}
-
-# Share the PCA with Network Firewall proxy service
-resource "aws_ram_principal_association" "test" {
-  principal          = "proxy.network-firewall.amazonaws.com"
-  resource_share_arn = aws_ram_resource_share.test.arn
+  sources            = [data.aws_caller_identity.current.account_id]
 }
 
 resource "aws_networkfirewall_proxy" "test" {
@@ -469,12 +488,6 @@ resource "aws_networkfirewall_proxy" "test" {
     port = 443
     type = "HTTPS"
   }
-
-  depends_on = [
-    aws_acmpca_certificate_authority.test,
-    aws_ram_resource_association.test,
-    aws_ram_principal_association.test,
-  ]
 }
 `, rName))
 }

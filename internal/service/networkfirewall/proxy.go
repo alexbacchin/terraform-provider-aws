@@ -38,13 +38,14 @@ import (
 
 // @FrameworkResource("aws_networkfirewall_proxy", name="Proxy")
 // @Tags(identifierAttribute="arn")
-// @ArnIdentity(identityDuplicateAttributes="id", hasNoPreExistingResource=true)
+// @ArnIdentity(identityDuplicateAttributes="id")
+// @Testing(hasNoPreExistingResource=true)
 func newResourceProxy(_ context.Context) (resource.ResourceWithConfigure, error) {
 	r := &resourceProxy{}
 
-	r.SetDefaultCreateTimeout(30 * time.Minute)
-	r.SetDefaultUpdateTimeout(30 * time.Minute)
-	r.SetDefaultDeleteTimeout(30 * time.Minute)
+	r.SetDefaultCreateTimeout(60 * time.Minute)
+	r.SetDefaultUpdateTimeout(60 * time.Minute)
+	r.SetDefaultDeleteTimeout(60 * time.Minute)
 
 	return r, nil
 }
@@ -411,7 +412,7 @@ func findProxyByARN(ctx context.Context, conn *networkfirewall.Client, arn strin
 	}
 
 	if out == nil || out.Proxy == nil {
-		return nil, tfresource.NewEmptyResultError(&input)
+		return nil, tfresource.NewEmptyResultError()
 	}
 
 	if out.Proxy.DeleteTime != nil {

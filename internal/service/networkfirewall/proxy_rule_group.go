@@ -30,6 +30,7 @@ import (
 // @Tags(identifierAttribute="arn")
 // @ArnIdentity(identityDuplicateAttributes="id")
 // @ArnFormat("proxy-rule-group/{name}")
+// @Testing(hasNoPreExistingResource=true)
 func newResourceProxyRuleGroup(_ context.Context) (resource.ResourceWithConfigure, error) {
 	r := &resourceProxyRuleGroup{}
 
@@ -43,6 +44,10 @@ const (
 type resourceProxyRuleGroup struct {
 	framework.ResourceWithModel[resourceProxyRuleGroupModel]
 	framework.WithImportByIdentity
+}
+
+func (r *resourceProxyRuleGroup) Metadata(_ context.Context, request resource.MetadataRequest, response *resource.MetadataResponse) {
+	response.TypeName = "aws_networkfirewall_proxy_rule_group"
 }
 
 func (r *resourceProxyRuleGroup) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -198,7 +203,7 @@ func findProxyRuleGroupByARN(ctx context.Context, conn *networkfirewall.Client, 
 	}
 
 	if output == nil || output.ProxyRuleGroup == nil {
-		return nil, tfresource.NewEmptyResultError(input)
+		return nil, tfresource.NewEmptyResultError()
 	}
 
 	if output.ProxyRuleGroup.DeleteTime != nil {

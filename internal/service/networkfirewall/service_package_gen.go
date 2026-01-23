@@ -59,9 +59,9 @@ func (p *servicePackage) FrameworkResources(ctx context.Context) []*inttypes.Ser
 			},
 		},
 		{
-			Factory:  newResourceProxyConfigurationRuleGroupsAttachmentResource,
-			TypeName: "aws_networkfirewall_proxy_configuration_rule_groups_attachment",
-			Name:     "Proxy Configuration Rule Groups Attachment",
+			Factory:  newResourceProxyConfigurationRuleGroupAttachmentsExclusive,
+			TypeName: "aws_networkfirewall_proxy_configuration_rule_group_attachments_exclusive",
+			Name:     "Proxy Configuration Rule Group Attachments Exclusive",
 			Region:   unique.Make(inttypes.ResourceRegionDefault()),
 			Identity: inttypes.RegionalARNIdentityNamed("proxy_configuration_arn", inttypes.WithIdentityDuplicateAttrs(names.AttrID)),
 			Import: inttypes.FrameworkImport{
@@ -82,9 +82,9 @@ func (p *servicePackage) FrameworkResources(ctx context.Context) []*inttypes.Ser
 			},
 		},
 		{
-			Factory:  newResourceProxyRules,
-			TypeName: "aws_networkfirewall_proxy_rules",
-			Name:     "Proxy Rules",
+			Factory:  newResourceProxyRulesExclusive,
+			TypeName: "aws_networkfirewall_proxy_rules_exclusive",
+			Name:     "Proxy Rules Exclusive",
 			Region:   unique.Make(inttypes.ResourceRegionDefault()),
 			Identity: inttypes.RegionalARNIdentityNamed("proxy_rule_group_arn", inttypes.WithIdentityDuplicateAttrs(names.AttrID)),
 			Import: inttypes.FrameworkImport{
