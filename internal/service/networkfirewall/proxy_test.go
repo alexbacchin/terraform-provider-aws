@@ -361,7 +361,6 @@ data "aws_region" "current" {}
 # Create a root CA for TLS interception
 resource "aws_acmpca_certificate_authority" "test" {
   type       = "ROOT"
-  usage_mode = "SHORT_LIVED_CERTIFICATE"
 
   certificate_authority_configuration {
     key_algorithm     = "RSA_2048"
@@ -467,6 +466,15 @@ resource "aws_ram_resource_share_associations_exclusive" "test" {
   resource_arns      = [aws_acmpca_certificate_authority.test.arn]
   resource_share_arn = aws_ram_resource_share.test.arn
   sources            = [data.aws_caller_identity.current.account_id]
+
+  lifecycle {
+    ignore_changes = [
+       resource_arns
+    ]
+    replace_triggered_by = [
+       aws_acmpca_certificate_authority.test
+    ]
+  }
 }
 
 resource "aws_networkfirewall_proxy" "test" {
