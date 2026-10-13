@@ -117,7 +117,7 @@ resource "aws_ram_principal_association" "example" {
 }
 ```
 
-The consumer account uses the shared event bus by its ARN, for example as the `event_bus_arn` of an [`aws_eventbridgev2_subscriber`](eventbridgev2_subscriber.html) or [`aws_eventbridgev2_event_source`](eventbridgev2_event_source.html). AWS RAM manages the event bus's `AWS_RAM` resource policy; use [`aws_eventbridgev2_resource_policy`](eventbridgev2_resource_policy.html) only for grants that the managed permissions don't cover.
+The consumer account uses the shared event bus by its ARN, for example as the `event_bus_arn` of an [`aws_eventbridgev2_subscriber`](eventbridgev2_subscriber.html) or [`aws_eventbridgev2_event_source`](eventbridgev2_event_source.html). AWS RAM manages the event bus's `AWS_RAM` resource policy. To grant access without AWS RAM, or to add an explicit `Deny`, a condition key, or another grant that the managed permissions don't cover, use [`aws_eventbridgev2_resource_policy`](eventbridgev2_resource_policy.html).
 
 ## Argument Reference
 

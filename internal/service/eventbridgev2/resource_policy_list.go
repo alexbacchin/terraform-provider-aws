@@ -9,9 +9,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/eventbridgev2"
 	"github.com/hashicorp/terraform-plugin-framework/list"
+	listschema "github.com/hashicorp/terraform-plugin-framework/list/schema"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-provider-aws/internal/errs/fwdiag"
 	"github.com/hashicorp/terraform-provider-aws/internal/framework"
+	fwflex "github.com/hashicorp/terraform-provider-aws/internal/framework/flex"
 	fwtypes "github.com/hashicorp/terraform-provider-aws/internal/framework/types"
 	"github.com/hashicorp/terraform-provider-aws/internal/logging"
 	"github.com/hashicorp/terraform-provider-aws/internal/retry"
@@ -30,12 +32,31 @@ type resourcePolicyListResource struct {
 	framework.WithList
 }
 
+func (l *resourcePolicyListResource) ListResourceConfigSchema(ctx context.Context, request list.ListResourceSchemaRequest, response *list.ListResourceSchemaResponse) {
+	response.Schema = listschema.Schema{
+		Attributes: map[string]listschema.Attribute{
+			names.AttrNamePrefix: listschema.StringAttribute{
+				Optional:    true,
+				Description: "Filter to list only the policies of event buses whose name begins with the specified prefix.",
+			},
+		},
+	}
+}
+
 func (l *resourcePolicyListResource) List(ctx context.Context, request list.ListRequest, stream *list.ListResultsStream) {
 	conn := l.Meta().EventBridgeV2Client(ctx)
 
-	accountID := l.Meta().AccountID(ctx)
+	var query listEventBusModel
+	if request.Config.Raw.IsKnown() && !request.Config.Raw.IsNull() {
+		if diags := request.Config.Get(ctx, &query); diags.HasError() {
+			stream.Results = list.ListResultsStreamDiagnostics(diags)
+			return
+		}
+	}
+
 	input := eventbridgev2.ListEventBusesInput{
-		EventBusAccountId: aws.String(accountID),
+		EventBusAccountId: aws.String(l.Meta().AccountID(ctx)),
+		NamePrefix:        fwflex.StringFromFramework(ctx, query.NamePrefix),
 	}
 
 	stream.Results = func(yield func(list.ListResult) bool) {
@@ -43,11 +64,6 @@ func (l *resourcePolicyListResource) List(ctx context.Context, request list.List
 			if err != nil {
 				yield(fwdiag.NewListResultErrorDiagnostic(err))
 				return
-			}
-
-			// Buses shared from other accounts through AWS RAM cannot be managed.
-			if v := aws.ToString(bus.EventBusAccountId); v != "" && v != accountID {
-				continue
 			}
 
 			arn := aws.ToString(bus.EventBusArn)

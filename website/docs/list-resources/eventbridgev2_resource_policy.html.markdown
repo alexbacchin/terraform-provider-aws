@@ -15,6 +15,10 @@ Lists EventBridge V2 resource policies. Only the customer-managed (`default`) po
 ```terraform
 list "aws_eventbridgev2_resource_policy" "example" {
   provider = aws
+
+  config {
+    name_prefix = "example"
+  }
 }
 ```
 
@@ -22,4 +26,5 @@ list "aws_eventbridgev2_resource_policy" "example" {
 
 This list resource supports the following arguments:
 
+* `name_prefix` - (Optional) Name prefix used to filter the event buses whose policies are listed.
 * `region` - (Optional) Region to query. Defaults to provider region.

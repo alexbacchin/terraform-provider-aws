@@ -24,9 +24,8 @@ func RegisterSweepers() {
 
 func sweepEventBuses(ctx context.Context, client *conns.AWSClient) ([]sweep.Sweepable, error) {
 	conn := client.EventBridgeV2Client(ctx)
-	accountID := client.AccountID(ctx)
 	input := eventbridgev2.ListEventBusesInput{
-		EventBusAccountId: aws.String(accountID),
+		EventBusAccountId: aws.String(client.AccountID(ctx)),
 	}
 	var sweepResources []sweep.Sweepable
 
@@ -38,11 +37,6 @@ func sweepEventBuses(ctx context.Context, client *conns.AWSClient) ([]sweep.Swee
 		}
 
 		for _, v := range page.EventBuses {
-			// Buses shared from other accounts through AWS RAM cannot be deleted.
-			if id := aws.ToString(v.EventBusAccountId); id != "" && id != accountID {
-				continue
-			}
-
 			sweepResources = append(sweepResources, sweepfw.NewSweepResource(newEventBusResource, client,
 				sweepfw.NewAttribute(names.AttrARN, aws.ToString(v.EventBusArn))),
 			)

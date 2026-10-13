@@ -351,46 +351,7 @@ resource "aws_eventbridgev2_subscriber" "test" {
 }
 
 func testAccSubscriberConfig_sharedEventBus(rName string) string {
-	return acctest.ConfigCompose(acctest.ConfigAlternateAccountProvider(), fmt.Sprintf(`
-data "aws_caller_identity" "current" {}
-
-data "aws_partition" "current" {}
-
-# The event bus is owned by the alternate account and shared with the primary account.
-resource "aws_eventbridgev2_event_bus" "test" {
-  provider = "awsalternate"
-
-  name = %[1]q
-}
-
-resource "aws_ram_resource_share" "test" {
-  provider = "awsalternate"
-
-  name                      = %[1]q
-  allow_external_principals = true
-  permission_arns           = ["arn:${data.aws_partition.current.partition}:ram::aws:permission/AWSRAMEventBridgeEventBusV2FullAccess"]
-}
-
-resource "aws_ram_resource_association" "test" {
-  provider = "awsalternate"
-
-  resource_arn       = aws_eventbridgev2_event_bus.test.arn
-  resource_share_arn = aws_ram_resource_share.test.arn
-}
-
-resource "aws_ram_principal_association" "test" {
-  provider = "awsalternate"
-
-  principal          = data.aws_caller_identity.current.account_id
-  resource_share_arn = aws_ram_resource_share.test.arn
-}
-
-resource "aws_ram_resource_share_accepter" "test" {
-  share_arn = aws_ram_principal_association.test.resource_share_arn
-
-  depends_on = [aws_ram_resource_association.test]
-}
-
+	return acctest.ConfigCompose(testAccEventBusConfig_shared(rName), fmt.Sprintf(`
 resource "aws_sqs_queue" "test" {
   name = %[1]q
 }
@@ -440,7 +401,7 @@ resource "aws_eventbridgev2_subscriber" "test" {
     target_arn = aws_sqs_queue.test.arn
   }
 
-  depends_on = [aws_iam_role_policy.test, aws_ram_resource_share_accepter.test]
+  depends_on = [aws_iam_role_policy.test, aws_ram_resource_association.test, aws_ram_principal_association.test]
 }
 `, rName))
 }

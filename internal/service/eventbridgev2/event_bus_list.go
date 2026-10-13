@@ -59,9 +59,8 @@ func (l *eventBusListResource) List(ctx context.Context, request list.ListReques
 	}
 
 	// Only list event buses owned by the caller; buses shared from other accounts cannot be managed.
-	accountID := l.Meta().AccountID(ctx)
 	input := eventbridgev2.ListEventBusesInput{
-		EventBusAccountId: aws.String(accountID),
+		EventBusAccountId: aws.String(l.Meta().AccountID(ctx)),
 		NamePrefix:        fwflex.StringFromFramework(ctx, query.NamePrefix),
 	}
 
@@ -70,11 +69,6 @@ func (l *eventBusListResource) List(ctx context.Context, request list.ListReques
 			if err != nil {
 				yield(fwdiag.NewListResultErrorDiagnostic(err))
 				return
-			}
-
-			// Buses shared from other accounts through AWS RAM cannot be managed.
-			if v := aws.ToString(item.EventBusAccountId); v != "" && v != accountID {
-				continue
 			}
 
 			arn := aws.ToString(item.EventBusArn)
